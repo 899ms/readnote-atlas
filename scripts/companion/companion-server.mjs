@@ -12,6 +12,7 @@ import { applyCorsForAllowedOrigin, hasAllowedBrowserOrigin } from "./companion-
 loadEnvFile(".env.local");
 
 const port = Number(process.env.READNOTE_PORT ?? process.env.READING_NOTEBOOK_PORT ?? 8791);
+const companionOrigin = `http://127.0.0.1:${port}`;
 
 function activeSettings() {
   return currentSettings();
@@ -130,12 +131,12 @@ async function handleTranslate(request, response) {
 }
 
 createServer((request, response) => {
-  if (!hasAllowedBrowserOrigin(request)) {
+  if (!hasAllowedBrowserOrigin(request, companionOrigin)) {
     response.writeHead(403, { "content-type": "application/json" });
     response.end(JSON.stringify({ error: "origin_not_allowed" }));
     return;
   }
-  applyCorsForAllowedOrigin(request, response);
+  applyCorsForAllowedOrigin(request, response, companionOrigin);
 
   if (request.method === "OPTIONS") {
     response.writeHead(204);
