@@ -60,6 +60,12 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /SUBTITLE_PREFETCH_WINDOW = 48/);
   assert.match(content, /MAX_SUBTITLE_TRANSLATION_REQUESTS = 2/);
   assert.match(content, /ReadnoteTranscript\.translationCandidates/);
+  assert.match(content, /readnote_subtitle_style_v2/);
+  assert.match(content, /\.rn-subtitle-copy \{[^}]*background:rgba\(7,7,8,/);
+  assert.match(content, /\.rn-subtitle-copy \{[^}]*align-items:flex-start/);
+  assert.match(content, /\.rn-subtitle-line \{[^}]*background:transparent/);
+  assert.match(content, /\.rn-subtitle-resize \{[^}]*width:14px/);
+  assert.doesNotMatch(content, /border:1px dashed/);
 });
 
 test("article page actions collapse behind one quiet launcher", () => {
