@@ -879,13 +879,17 @@ function injectPageActions(): void {
   const menu = document.createElement("div");
   menu.className = "rk-page-actions-menu";
 
+  function closePageActionsMenu(): void {
+    actions.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
   const translate = document.createElement("button");
   translate.type = "button";
   translate.className = "rk-translate-button";
   translate.textContent = "Translate";
   translate.addEventListener("click", () => {
-    actions.classList.remove("is-open");
-    toggle.setAttribute("aria-expanded", "false");
+    closePageActionsMenu();
     runExtensionTask(translatePage);
   });
 
@@ -894,8 +898,7 @@ function injectPageActions(): void {
   clearAll.className = "rk-clear-all-button";
   clearAll.textContent = "Clear all";
   clearAll.addEventListener("click", () => {
-    actions.classList.remove("is-open");
-    toggle.setAttribute("aria-expanded", "false");
+    closePageActionsMenu();
     runExtensionTask(clearAllAnnotationsForCurrentPage);
   });
 
@@ -909,8 +912,7 @@ function injectPageActions(): void {
 
   document.addEventListener("pointerdown", (event) => {
     if (!actions.contains(event.target as Node)) {
-      actions.classList.remove("is-open");
-      toggle.setAttribute("aria-expanded", "false");
+      closePageActionsMenu();
     }
   });
 }

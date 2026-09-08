@@ -31,9 +31,7 @@ let errorAction = null;
 
 // --- Translation state ---
 // On means an aligned bilingual view everywhere; Off means source text only.
-let currentTranscriptMode = "bilingual";
-const DISPLAY_LANGUAGE_MODE_KEY = "ytd_display_language_modes_by_video";
-const DISPLAY_LANGUAGE_MODES = new Set(["off", "bilingual"]);
+let currentTranscriptMode = ReadnoteTranscript.DEFAULT_DISPLAY_MODE;
 let translationGeneration = 0; // Invalidates responses from older UI modes/videos.
 let translationWorkCount = 0;
 let transcriptScrollObserver = null;
@@ -292,6 +290,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
   }
   return false;
+});
+
+chrome.storage?.onChanged?.addListener((changes, areaName) => {
+  if (areaName !== "local" || !currentVideoId) return;
+  const modes =
+    changes[ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY]?.newValue;
+  const mode = modes?.[currentVideoId]?.mode;
+  if (!ReadnoteTranscript.isDisplayMode(mode)) return;
+  void handleDisplayLanguageModeChange(mode, { persist: false });
 });
 
 // ============================================================
@@ -2414,26 +2421,28 @@ function restorePendingTranscriptViewState(videoId) {
 
 async function loadDisplayLanguageMode(videoId) {
   if (!videoId) {
-    setTranscriptModeButtons("bilingual");
-    return "bilingual";
+    setTranscriptModeButtons(ReadnoteTranscript.DEFAULT_DISPLAY_MODE);
+    return ReadnoteTranscript.DEFAULT_DISPLAY_MODE;
   }
   try {
-    const stored = await chrome.storage.local.get(DISPLAY_LANGUAGE_MODE_KEY);
-    const mode = stored?.[DISPLAY_LANGUAGE_MODE_KEY]?.[videoId]?.mode;
-    currentTranscriptMode = DISPLAY_LANGUAGE_MODES.has(mode)
+    const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
+    const stored = await chrome.storage.local.get(storageKey);
+    const mode = stored?.[storageKey]?.[videoId]?.mode;
+    currentTranscriptMode = ReadnoteTranscript.isDisplayMode(mode)
       ? mode
-      : "bilingual";
+      : ReadnoteTranscript.DEFAULT_DISPLAY_MODE;
   } catch (error) {
-    currentTranscriptMode = "bilingual";
+    currentTranscriptMode = ReadnoteTranscript.DEFAULT_DISPLAY_MODE;
   }
   setTranscriptModeButtons(currentTranscriptMode);
   return currentTranscriptMode;
 }
 
 async function saveDisplayLanguageMode(videoId, mode) {
-  if (!videoId || !DISPLAY_LANGUAGE_MODES.has(mode)) return;
-  const stored = await chrome.storage.local.get(DISPLAY_LANGUAGE_MODE_KEY);
-  const modes = stored?.[DISPLAY_LANGUAGE_MODE_KEY] || {};
+  if (!videoId || !ReadnoteTranscript.isDisplayMode(mode)) return;
+  const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
+  const stored = await chrome.storage.local.get(storageKey);
+  const modes = stored?.[storageKey] || {};
   modes[videoId] = { mode, updatedAt: Date.now() };
   const recentModes = Object.fromEntries(
     Object.entries(modes)
@@ -2441,7 +2450,7 @@ async function saveDisplayLanguageMode(videoId, mode) {
       .slice(0, 50),
   );
   await chrome.storage.local.set({
-    [DISPLAY_LANGUAGE_MODE_KEY]: recentModes,
+    [storageKey]: recentModes,
   });
 }
 
@@ -2450,7 +2459,7 @@ function getActiveTranscriptSegments() {
 }
 
 function transcriptTranslationCacheKey(segment) {
-  return `${currentVideoId}:zh:semantic:${segment.id}`;
+  return ReadnoteTranscript.translationKey(currentVideoId, segment);
 }
 
 function setTranscriptModeButtons(mode) {
@@ -2461,12 +2470,15 @@ function setTranscriptModeButtons(mode) {
   });
 }
 
-async function handleDisplayLanguageModeChange(mode) {
-  if (!DISPLAY_LANGUAGE_MODES.has(mode)) return;
+async function handleDisplayLanguageModeChange(
+  mode,
+  { persist = true } = {},
+) {
+  if (!ReadnoteTranscript.isDisplayMode(mode)) return;
   if (mode === currentTranscriptMode) return;
 
   currentTranscriptMode = mode;
-  await saveDisplayLanguageMode(currentVideoId, mode);
+  if (persist) await saveDisplayLanguageMode(currentVideoId, mode);
   if (mode !== "off") interfaceTranslationFailures.clear();
   translationGeneration += 1;
   translationWorkCount = 0;

@@ -1,4 +1,7 @@
 var ReadnoteTranscript = (() => {
+  const DISPLAY_MODES = Object.freeze(["bilingual", "off"]);
+  const DEFAULT_DISPLAY_MODE = "bilingual";
+  const DISPLAY_MODE_STORAGE_KEY = "readnote_bilingual_modes_by_video";
   const LIMITS = Object.freeze({
     minChars: 60,
     idealChars: 180,
@@ -157,16 +160,35 @@ var ReadnoteTranscript = (() => {
     return `${clean.slice(0, cut).trim()}\n${clean.slice(cut).trim()}`;
   }
 
+  function isDisplayMode(value) {
+    return DISPLAY_MODES.includes(value);
+  }
+
+  function textFingerprint(text) {
+    const clean = normalizeText(text);
+    let hash = 2166136261;
+    for (let index = 0; index < clean.length; index += 1) {
+      hash ^= clean.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `${clean.length}-${(hash >>> 0).toString(36)}`;
+  }
+
   function translationKey(videoId, segment) {
-    return `${String(videoId || "")}:zh:semantic:${String(segment?.id || "")}`;
+    return `${String(videoId || "")}:zh:semantic:${String(segment?.id || "")}:${textFingerprint(segment?.text)}`;
   }
 
   return {
     LIMITS,
+    DISPLAY_MODES,
+    DEFAULT_DISPLAY_MODE,
+    DISPLAY_MODE_STORAGE_KEY,
+    isDisplayMode,
     normalizeText,
     groupEntries,
     activeSegment,
     wrapSubtitle,
+    textFingerprint,
     translationKey,
   };
 })();

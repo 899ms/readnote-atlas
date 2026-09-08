@@ -28,7 +28,8 @@
   width: 30px;
   height: 30px;
   padding: 0 !important;
-  opacity: 0.14;
+  opacity: 0;
+  transform: translateX(12px);
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
@@ -36,6 +37,7 @@
 .rk-page-actions.is-open .rk-page-actions-toggle,
 .rk-page-actions-toggle:focus-visible {
   opacity: 1;
+  transform: translateX(0);
 }
 
 .rk-page-actions-menu {

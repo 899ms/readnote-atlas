@@ -13,7 +13,12 @@ test("video translation exposes only bilingual On and Off", () => {
   assert.match(panel, /data-transcript-mode="bilingual"[\s\S]*?>On</);
   assert.match(panel, /data-transcript-mode="off"[\s\S]*?>Off</);
   assert.doesNotMatch(panel, /data-transcript-mode="(?:original|zh)"/);
-  assert.match(panelScript, /let currentTranscriptMode = "bilingual"/);
+  assert.match(
+    panelScript,
+    /let currentTranscriptMode = ReadnoteTranscript\.DEFAULT_DISPLAY_MODE/,
+  );
+  assert.match(panelScript, /ReadnoteTranscript\.DISPLAY_MODE_STORAGE_KEY/);
+  assert.match(content, /ReadnoteTranscript\.DISPLAY_MODE_STORAGE_KEY/);
   assert.match(content, /data-mode="bilingual">On</);
   assert.match(content, /data-mode="off">Off</);
   assert.doesNotMatch(content, />EN<|>关闭<|>中英</);
@@ -46,6 +51,7 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /data-controls-toggle/);
   assert.match(content, /rn-subtitle-settings/);
   assert.match(content, /ReadnoteTranscript\.wrapSubtitle/);
+  assert.match(content, /if \(readnoteSubtitleMode !== "bilingual"\) return/);
 });
 
 test("article page actions collapse behind one quiet launcher", () => {
@@ -54,5 +60,7 @@ test("article page actions collapse behind one quiet launcher", () => {
   assert.match(article, /rk-page-actions-toggle/);
   assert.match(article, /aria-expanded/);
   assert.match(article, /rk-page-actions-menu/);
+  assert.match(article, /function closePageActionsMenu/);
   assert.match(css, /\.rk-page-actions:not\(\.is-open\) \.rk-page-actions-menu/);
+  assert.match(css, /\.rk-page-actions-toggle[\s\S]*?opacity: 0;/);
 });

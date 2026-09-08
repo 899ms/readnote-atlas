@@ -50,6 +50,7 @@ function loadSearchHelper() {
     YTD_SETTINGS: {},
   };
   sandbox.globalThis = sandbox;
+  vm.runInNewContext(read("transcript.js"), sandbox);
   vm.runInNewContext(read("sidepanel.js"), sandbox);
   return sandbox.__YTD_TRANSCRIPT_TESTING__.findLiteralTranscriptMatches;
 }

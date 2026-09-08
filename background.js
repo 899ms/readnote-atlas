@@ -23,8 +23,6 @@ const debugLog = (...args) => {
   if (DEBUG) console.log(...args);
 };
 
-const OVERLAY_MODE_STORAGE_KEY = "readnote_overlay_modes_by_video";
-const OVERLAY_MODES = new Set(["bilingual", "off"]);
 const OVERLAY_SEGMENT_LIMITS = Object.freeze({
   minChars: 28,
   idealChars: 72,
@@ -1043,11 +1041,14 @@ async function handleGetOverlayState(videoId) {
   const cacheKey = `digest_${videoId}`;
   const stored = await chrome.storage.local.get([
     cacheKey,
-    OVERLAY_MODE_STORAGE_KEY,
+    ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY,
   ]);
   let cached = stored[cacheKey];
-  const configuredMode = stored[OVERLAY_MODE_STORAGE_KEY]?.[videoId]?.mode;
-  const mode = OVERLAY_MODES.has(configuredMode) ? configuredMode : "bilingual";
+  const configuredMode =
+    stored[ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY]?.[videoId]?.mode;
+  const mode = ReadnoteTranscript.isDisplayMode(configuredMode)
+    ? configuredMode
+    : ReadnoteTranscript.DEFAULT_DISPLAY_MODE;
   if (!cached?.transcript?.length) {
     let request = overlayTranscriptRequests.get(videoId);
     if (!request) {
@@ -1097,25 +1098,31 @@ async function handleGetOverlayState(videoId) {
 
 async function handleSetOverlayMode(videoId, mode) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
-  if (!OVERLAY_MODES.has(mode)) {
+  if (!ReadnoteTranscript.isDisplayMode(mode)) {
     return { success: false, error: "Unsupported subtitle mode." };
   }
-  const stored = await chrome.storage.local.get(OVERLAY_MODE_STORAGE_KEY);
-  const existing = stored[OVERLAY_MODE_STORAGE_KEY] || {};
+  const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
+  const stored = await chrome.storage.local.get(storageKey);
+  const existing = stored[storageKey] || {};
   existing[videoId] = { mode, updatedAt: Date.now() };
   const recent = Object.fromEntries(
     Object.entries(existing)
       .sort(([, left], [, right]) => (right.updatedAt || 0) - (left.updatedAt || 0))
       .slice(0, 50),
   );
-  await chrome.storage.local.set({ [OVERLAY_MODE_STORAGE_KEY]: recent });
+  await chrome.storage.local.set({ [storageKey]: recent });
   return { success: true, mode };
 }
 
 async function handleTranslateOverlayBatch(videoId, segmentIds) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
   const cacheKey = `digest_${videoId}`;
-  const stored = await chrome.storage.local.get(cacheKey);
+  const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
+  const stored = await chrome.storage.local.get([cacheKey, storageKey]);
+  const configuredMode = stored[storageKey]?.[videoId]?.mode;
+  if (configuredMode === "off") {
+    return { success: true, translations: [] };
+  }
   const cached = stored[cacheKey];
   if (!cached?.transcript?.length) {
     return { success: false, error: "Transcript is not ready." };

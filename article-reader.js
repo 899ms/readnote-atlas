@@ -919,13 +919,16 @@
 		toggle.setAttribute("aria-expanded", "false");
 		const menu = document.createElement("div");
 		menu.className = "rk-page-actions-menu";
+		function closePageActionsMenu() {
+			actions.classList.remove("is-open");
+			toggle.setAttribute("aria-expanded", "false");
+		}
 		const translate = document.createElement("button");
 		translate.type = "button";
 		translate.className = "rk-translate-button";
 		translate.textContent = "Translate";
 		translate.addEventListener("click", () => {
-			actions.classList.remove("is-open");
-			toggle.setAttribute("aria-expanded", "false");
+			closePageActionsMenu();
 			runExtensionTask(translatePage);
 		});
 		const clearAll = document.createElement("button");
@@ -933,8 +936,7 @@
 		clearAll.className = "rk-clear-all-button";
 		clearAll.textContent = "Clear all";
 		clearAll.addEventListener("click", () => {
-			actions.classList.remove("is-open");
-			toggle.setAttribute("aria-expanded", "false");
+			closePageActionsMenu();
 			runExtensionTask(clearAllAnnotationsForCurrentPage);
 		});
 		toggle.addEventListener("click", () => {
@@ -945,10 +947,7 @@
 		actions.append(toggle, menu);
 		document.body.append(actions);
 		document.addEventListener("pointerdown", (event) => {
-			if (!actions.contains(event.target)) {
-				actions.classList.remove("is-open");
-				toggle.setAttribute("aria-expanded", "false");
-			}
+			if (!actions.contains(event.target)) closePageActionsMenu();
 		});
 	}
 	async function bootstrap() {

@@ -28,11 +28,18 @@ test("finds the segment currently spoken and tolerates a short caption gap", () 
   assert.equal(transcript.activeSegment(segments, 45), null);
 });
 
-test("uses the same stable translation key in the panel and player", () => {
-  assert.equal(
-    transcript.translationKey("video123", { id: "segment-2-9000" }),
-    "video123:zh:semantic:segment-2-9000",
-  );
+test("translation keys include source text so differently grouped captions cannot collide", () => {
+  const first = transcript.translationKey("video123", {
+    id: "segment-2-9000",
+    text: "A short player caption.",
+  });
+  const second = transcript.translationKey("video123", {
+    id: "segment-2-9000",
+    text: "A longer side panel paragraph built from several captions.",
+  });
+
+  assert.match(first, /^video123:zh:semantic:segment-2-9000:/);
+  assert.notEqual(first, second);
 });
 
 test("long player subtitles split once near a natural midpoint", () => {

@@ -69,6 +69,17 @@ function init() {
   setupDigestButtonResizeListener();
 }
 
+chrome.storage?.onChanged?.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  const videoId = currentReadnoteVideoId();
+  const modes = changes[ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY]?.newValue;
+  const mode = modes?.[videoId]?.mode;
+  if (!videoId || !ReadnoteTranscript.isDisplayMode(mode)) return;
+  readnoteSubtitleMode = mode;
+  updateReadnoteSubtitleControls();
+  renderReadnoteSubtitle();
+});
+
 /**
  * Attempts to inject the note button. If the player container isn't ready yet,
  * retry a few times with a short delay. YouTube renders the player asynchronously
@@ -508,7 +519,7 @@ function injectReadnoteSubtitleOverlay(player) {
       event.stopPropagation();
       const mode = button.dataset.mode;
       const videoId = currentReadnoteVideoId();
-      if (!videoId || !["bilingual", "off"].includes(mode)) return;
+      if (!videoId || !ReadnoteTranscript.isDisplayMode(mode)) return;
       readnoteSubtitleMode = mode;
       updateReadnoteSubtitleControls();
       renderReadnoteSubtitle();
@@ -602,7 +613,9 @@ async function refreshReadnoteSubtitleState() {
         readnoteSubtitleVideo?.currentTime || 0,
       );
       const currentIndex = Math.max(0, readnoteSubtitleSegments.findIndex((item) => item.id === current?.id));
-      void requestReadnoteSubtitleTranslations(currentIndex);
+      if (readnoteSubtitleMode === "bilingual") {
+        void requestReadnoteSubtitleTranslations(currentIndex);
+      }
     }
     updateReadnoteSubtitleControls();
     renderReadnoteSubtitle();
@@ -618,6 +631,7 @@ async function refreshReadnoteSubtitleState() {
 }
 
 async function requestReadnoteSubtitleTranslations(startIndex) {
+  if (readnoteSubtitleMode !== "bilingual") return;
   const videoId = currentReadnoteVideoId();
   if (!videoId) return;
   const candidates = readnoteSubtitleSegments
