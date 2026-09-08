@@ -722,6 +722,35 @@ test("DeepSeek retries one empty transcript JSON response without response_forma
   assert.equal(requests[0].max_tokens, 1536);
 });
 
+test("live player subtitles use the low-latency plain-text translation path", async () => {
+  const requests = [];
+  const helpers = loadBackgroundHelpers({
+    fetchImpl: async (url, options) => {
+      if (url.startsWith("chrome-extension://")) {
+        return { ok: true, text: async () => read("prompts/translation.md") };
+      }
+      requests.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "这是实时字幕译文。" } }],
+        }),
+      };
+    },
+  });
+
+  const result = await helpers.handleTranslateLiveSubtitle(
+    { id: "segment-0-0", text: "This is the live subtitle source." },
+    "Video",
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(result.translatedContent.segments[0].text, "这是实时字幕译文。");
+  assert.equal(requests[0].max_tokens, 320);
+  assert.equal(Object.hasOwn(requests[0], "response_format"), false);
+  assert.match(requests[0].messages[0].content, /live subtitle/i);
+});
+
 test("interface batches use the dedicated saved Notes translation prompt", async () => {
   const requests = [];
   const helpers = loadBackgroundHelpers({

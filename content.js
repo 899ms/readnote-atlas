@@ -44,13 +44,13 @@ const SUBTITLE_PREFETCH_COUNT = 6;
 const SUBTITLE_PREFETCH_WINDOW = 48;
 const MAX_SUBTITLE_TRANSLATION_REQUESTS = 2;
 let readnoteSubtitleTranslationInflight = 0;
-const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v2";
+const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v5";
 let readnoteSubtitleStyle = {
   font: "sans",
   size: "medium",
   x: 50,
-  y: 80,
-  width: 58,
+  y: 76,
+  width: "auto",
 };
 
 // ============================================================
@@ -471,11 +471,11 @@ function injectReadnoteSubtitleOverlay(player) {
   const style = document.createElement("style");
   style.id = "readnote-subtitle-style";
   style.textContent = `
-    #readnote-subtitle-root { position:absolute; inset:0; z-index:48; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,80%); width:min(var(--rn-subtitle-width,58%),920px); max-width:90%; padding:11px 16px 12px; border:1px solid transparent; border-radius:12px; box-sizing:border-box; transform:translate(-50%,-50%); display:flex; flex-direction:column; gap:5px; align-items:flex-start; text-align:left; background:rgba(7,7,8,.78); box-shadow:0 4px 18px rgba(0,0,0,.2); backdrop-filter:blur(2px); transition:opacity .16s ease,border-color .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+    #readnote-subtitle-root { position:absolute; inset:0; z-index:9998; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,76%); width:var(--rn-subtitle-width,max-content); max-width:90%; padding:9px 16px 10px; border:1px solid transparent; border-radius:12px; box-sizing:border-box; transform:translate3d(-50%,-50%,0); display:flex; flex-direction:column; gap:5px; align-items:center; text-align:center; background:rgba(7,7,8,.78); box-shadow:0 4px 18px rgba(0,0,0,.2); backdrop-filter:blur(2px); transition:opacity .16s ease,border-color .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
     #readnote-subtitle-root .rn-subtitle-copy:hover { border-color:rgba(255,255,255,.32); }
     #readnote-subtitle-root .rn-subtitle-copy.is-dragging { cursor:grabbing; }
-    #readnote-subtitle-root .rn-subtitle-line { width:100%; max-width:100%; padding:0; background:transparent; color:#fff; font-size:clamp(16px,1.45vw,24px); line-height:1.32; letter-spacing:.005em; text-align:left; white-space:normal; overflow-wrap:break-word; text-wrap:pretty; text-shadow:0 2px 4px rgba(0,0,0,.82); pointer-events:none; }
+    #readnote-subtitle-root .rn-subtitle-line { width:100%; max-width:100%; padding:0; background:transparent; color:#fff; font-size:clamp(16px,1.45vw,24px); line-height:1.32; letter-spacing:.005em; text-align:center; white-space:normal; overflow-wrap:break-word; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); pointer-events:none; }
     #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
     #readnote-subtitle-root .rn-subtitle-zh { color:#fff7dc; font-size:clamp(15px,1.38vw,23px); font-weight:550; }
     #readnote-subtitle-root .rn-subtitle-zh.is-pending { color:rgba(255,247,220,.68); }
@@ -490,9 +490,9 @@ function injectReadnoteSubtitleOverlay(player) {
     #readnote-subtitle-root[data-font="serif"] .rn-subtitle-line { font-family:Georgia,"Noto Serif SC",serif; }
     #readnote-subtitle-root[data-size="small"] .rn-subtitle-line { font-size:clamp(14px,1.2vw,20px); }
     #readnote-subtitle-root[data-size="large"] .rn-subtitle-line { font-size:clamp(18px,1.75vw,28px); }
-    #readnote-subtitle-root .rn-subtitle-resize { position:absolute; right:-5px; bottom:-5px; width:14px; height:14px; padding:0; border:0; border-radius:3px; background:rgba(255,255,255,.92); box-shadow:0 2px 6px rgba(0,0,0,.3); cursor:nwse-resize; opacity:0; transition:opacity .16s ease; pointer-events:auto; touch-action:none; }
+    #readnote-subtitle-root .rn-subtitle-resize { position:absolute; right:-9px; bottom:-9px; width:24px; height:24px; padding:0; border:0; background:transparent; cursor:nwse-resize; opacity:0; transition:opacity .16s ease; pointer-events:auto; touch-action:none; }
     #readnote-subtitle-root .rn-subtitle-copy:hover .rn-subtitle-resize, #readnote-subtitle-root .rn-subtitle-copy.is-dragging .rn-subtitle-resize { opacity:1; }
-    #readnote-subtitle-root .rn-subtitle-resize::after { content:""; position:absolute; inset:3px; border-right:1.5px solid #0969da; border-bottom:1.5px solid #0969da; }
+    #readnote-subtitle-root .rn-subtitle-resize::after { content:""; position:absolute; right:5px; bottom:5px; width:9px; height:9px; border-right:2px solid #fff; border-bottom:2px solid #fff; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-copy { opacity:0; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-copy { pointer-events:none; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-controls { opacity:1; }
@@ -571,13 +571,15 @@ function normalizeReadnoteSubtitleStyle(value) {
     Number.isFinite(Number(number))
       ? Math.min(max, Math.max(min, Number(number)))
       : fallback;
-  const width = clamp(value?.width, 36, 90, 58);
-  const horizontalMargin = width / 2 + 2;
+  const width = value?.width === "auto" || !Number.isFinite(Number(value?.width))
+    ? "auto"
+    : clamp(value.width, 24, 90, 58);
+  const horizontalMargin = width === "auto" ? 5 : width / 2 + 2;
   return {
     font: value?.font === "serif" ? "serif" : "sans",
     size: ["small", "medium", "large"].includes(value?.size) ? value.size : "medium",
     x: clamp(value?.x, horizontalMargin, 100 - horizontalMargin, 50),
-    y: clamp(value?.y, 14, 90, legacyY || 80),
+    y: clamp(value?.y, 14, 90, legacyY || 76),
     width,
   };
 }
@@ -598,7 +600,11 @@ function applyReadnoteSubtitleStyle() {
   readnoteSubtitleRoot.dataset.size = readnoteSubtitleStyle.size;
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-x", `${readnoteSubtitleStyle.x}%`);
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-y", `${readnoteSubtitleStyle.y}%`);
-  readnoteSubtitleRoot.style.setProperty("--rn-subtitle-width", `${readnoteSubtitleStyle.width}%`);
+  if (readnoteSubtitleStyle.width === "auto") {
+    readnoteSubtitleRoot.style.removeProperty("--rn-subtitle-width");
+  } else {
+    readnoteSubtitleRoot.style.setProperty("--rn-subtitle-width", `${readnoteSubtitleStyle.width}%`);
+  }
 }
 
 function updateReadnoteSubtitleStyle(action) {
@@ -623,6 +629,7 @@ function setupReadnoteSubtitleTransform(copy, player) {
   const finish = (event) => {
     if (!interaction || event.pointerId !== interaction.pointerId) return;
     copy.classList.remove("is-dragging");
+    copy.style.willChange = "";
     if (copy.hasPointerCapture?.(event.pointerId)) copy.releasePointerCapture(event.pointerId);
     interaction = null;
     void chrome.storage.local.set({ [SUBTITLE_STYLE_STORAGE_KEY]: readnoteSubtitleStyle });
@@ -630,9 +637,11 @@ function setupReadnoteSubtitleTransform(copy, player) {
 
   copy.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    if (event.target.closest(".rn-subtitle-controls") && !event.target.closest("[data-resize-handle]")) return;
     event.preventDefault();
     event.stopPropagation();
     const bounds = player.getBoundingClientRect();
+    const copyBounds = copy.getBoundingClientRect();
     interaction = {
       pointerId: event.pointerId,
       kind: event.target.closest("[data-resize-handle]") ? "resize" : "move",
@@ -640,18 +649,21 @@ function setupReadnoteSubtitleTransform(copy, player) {
       startClientY: event.clientY,
       startX: readnoteSubtitleStyle.x,
       startY: readnoteSubtitleStyle.y,
-      startWidth: readnoteSubtitleStyle.width,
+      startRenderedWidthPercent: (copyBounds.width / Math.max(1, bounds.width)) * 100,
+      startLeftPercent: ((copyBounds.left - bounds.left) / Math.max(1, bounds.width)) * 100,
+      playerLeft: bounds.left,
       width: Math.max(1, bounds.width),
       height: Math.max(1, bounds.height),
     };
     copy.classList.add("is-dragging");
+    copy.style.willChange = "left, top, width, transform";
     copy.setPointerCapture?.(event.pointerId);
   });
   copy.addEventListener("pointermove", (event) => {
     if (!interaction || event.pointerId !== interaction.pointerId) return;
     event.preventDefault();
     if (interaction.kind === "move") {
-      const horizontalMargin = readnoteSubtitleStyle.width / 2 + 2;
+      const horizontalMargin = interaction.startRenderedWidthPercent / 2 + 2;
       readnoteSubtitleStyle.x = Math.min(
         100 - horizontalMargin,
         Math.max(horizontalMargin, interaction.startX + ((event.clientX - interaction.startClientX) / interaction.width) * 100),
@@ -661,14 +673,13 @@ function setupReadnoteSubtitleTransform(copy, player) {
         Math.max(14, interaction.startY + ((event.clientY - interaction.startClientY) / interaction.height) * 100),
       );
     } else {
-      const maximumWidth = Math.max(
-        36,
-        Math.min(94, 2 * Math.min(readnoteSubtitleStyle.x, 100 - readnoteSubtitleStyle.x) - 4),
-      );
+      const pointerPercent = ((event.clientX - interaction.playerLeft) / interaction.width) * 100;
+      const maximumWidth = Math.max(24, Math.min(90, 98 - interaction.startLeftPercent));
       readnoteSubtitleStyle.width = Math.min(
         maximumWidth,
-        Math.max(36, interaction.startWidth + ((event.clientX - interaction.startClientX) / interaction.width) * 200),
+        Math.max(24, pointerPercent - interaction.startLeftPercent),
       );
+      readnoteSubtitleStyle.x = interaction.startLeftPercent + readnoteSubtitleStyle.width / 2;
     }
     applyReadnoteSubtitleStyle();
   });
@@ -716,6 +727,15 @@ async function refreshReadnoteSubtitleState() {
 
 async function requestReadnoteSubtitleTranslations(startIndex) {
   if (readnoteSubtitleMode !== "bilingual" || readnoteSubtitleTranslationError) return;
+  const activeSegment = readnoteSubtitleSegments[startIndex];
+  // Give the sentence on screen an uncontested fast lane. Starting the larger
+  // look-ahead batch while its one-line request is pending can make DeepSeek
+  // queue the visible translation behind work the viewer has not reached yet.
+  if (
+    activeSegment &&
+    !activeSegment.translation &&
+    readnoteSubtitleTranslationRequests.has(activeSegment.id)
+  ) return;
   if (readnoteSubtitleTranslationInflight >= MAX_SUBTITLE_TRANSLATION_REQUESTS) return;
   const videoId = currentReadnoteVideoId();
   if (!videoId) return;

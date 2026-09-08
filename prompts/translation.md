@@ -43,6 +43,21 @@ The video is titled "{videoTitle}". Use the title and neighboring segments only 
 - Output only valid JSON. No markdown fences, commentary, labels, or extra keys.
 ```
 
+## Live subtitle translation
+
+Input is one complete spoken subtitle thought. Latency matters because the
+viewer is currently watching this line.
+
+```
+You translate one live subtitle into {langName}. The video is titled "{videoTitle}".
+
+{baseRules}
+
+- Translate the complete spoken thought naturally and concisely.
+- Return only the translated subtitle text.
+- Do not return JSON, markdown, quotes, labels, commentary, or alternatives.
+```
+
 ## Interface content translation
 
 Input is a JSON object with 1 to 6 saved-note text segments. Each segment has a

@@ -97,6 +97,8 @@ async function requestAiCompletion({
   maxTokens,
   temperature,
   responseFormat,
+  idleTimeoutMs = AI_PROVIDER_IDLE_TIMEOUT_MS,
+  hardTimeoutMs = AI_PROVIDER_HARD_TIMEOUT_MS,
 }) {
   const settings = await getSettings();
   if (!settings.aiApiKey) {
@@ -131,13 +133,13 @@ async function requestAiCompletion({
     clearTimeout(idleTimeoutId);
     idleTimeoutId = setTimeout(
       () => abortForTimeout("idle"),
-      AI_PROVIDER_IDLE_TIMEOUT_MS,
+      idleTimeoutMs,
     );
   };
 
   hardTimeoutId = setTimeout(
     () => abortForTimeout("hard"),
-    AI_PROVIDER_HARD_TIMEOUT_MS,
+    hardTimeoutMs,
   );
   resetIdleTimeout();
   try {
@@ -180,14 +182,14 @@ async function requestAiCompletion({
   } catch (error) {
     if (timeoutKind === "idle") {
       const timeoutError = new Error(
-        "DeepSeek request was inactive for 50 seconds. Please Retry.",
+        `DeepSeek request was inactive for ${Math.round(idleTimeoutMs / 1000)} seconds. Please Retry.`,
       );
       timeoutError.code = "AI_IDLE_TIMEOUT";
       throw timeoutError;
     }
     if (timeoutKind === "hard") {
       const timeoutError = new Error(
-        "DeepSeek request exceeded the 120-second limit. Please Retry.",
+        `DeepSeek request exceeded the ${Math.round(hardTimeoutMs / 1000)}-second limit. Please Retry.`,
       );
       timeoutError.code = "AI_HARD_TIMEOUT";
       throw timeoutError;
@@ -1160,12 +1162,15 @@ async function handleTranslateOverlayBatch(videoId, segmentIds) {
   });
 
   if (missing.length) {
-    const result = await handleTranslateContent(
-      { segments: missing.map(({ id, text }) => ({ id, text })) },
-      "transcriptBatch",
-      "zh",
-      cached.videoTitle || "",
-    );
+    const translationInput = missing.map(({ id, text }) => ({ id, text }));
+    const result = missing.length === 1
+      ? await handleTranslateLiveSubtitle(translationInput[0], cached.videoTitle || "")
+      : await handleTranslateContent(
+          { segments: translationInput },
+          "transcriptBatch",
+          "zh",
+          cached.videoTitle || "",
+        );
     if (!result?.success) {
       return { success: false, error: result?.error || "Translation failed." };
     }
@@ -1749,6 +1754,48 @@ function normalizeTranslatedSegmentBatch(parsed, sourceSegments) {
   };
 }
 
+async function handleTranslateLiveSubtitle(segment, videoTitle) {
+  try {
+    const [source] = validateTranscriptBatchRequest({ segments: [segment] });
+    const langName = "Simplified Chinese";
+    const baseRules = await getTranslationBaseRules("zh");
+    const systemPrompt = await loadPromptSection(
+      "translation.md",
+      "Live subtitle translation",
+      {
+        langName,
+        videoTitle: videoTitle || "Unknown",
+        baseRules,
+      },
+    );
+    const result = await callAiTranslation(systemPrompt, source.text, {
+      temperature: 0.1,
+      maxTokens: 320,
+      idleTimeoutMs: 8_000,
+      hardTimeoutMs: 15_000,
+    });
+    if (!result.success) return result;
+
+    const translation = String(result.text || "")
+      .trim()
+      .replace(/^```(?:text)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .replace(/^["“”']+|["“”']+$/g, "")
+      .trim();
+    if (!translation || !looksLikeChineseTranslation(translation, source.text)) {
+      return { success: false, error: "Translation returned no valid Chinese subtitle" };
+    }
+    return {
+      success: true,
+      translatedContent: {
+        segments: [{ id: source.id, text: translation, error: "" }],
+      },
+    };
+  } catch (error) {
+    return { success: false, error: error.message || "Translation failed" };
+  }
+}
+
 /**
  * Translates content using DeepSeek.
  * @param {Object} content - JSON object containing semantic transcript segments
@@ -1846,13 +1893,21 @@ async function handleTranslateContent(
 async function callAiTranslation(
   systemPrompt,
   userContent,
-  { temperature = 0.3, maxTokens = 8192, responseFormat } = {},
+  {
+    temperature = 0.3,
+    maxTokens = 8192,
+    responseFormat,
+    idleTimeoutMs,
+    hardTimeoutMs,
+  } = {},
 ) {
   try {
     const { text } = await requestAiCompletion({
       temperature,
       maxTokens,
       responseFormat,
+      idleTimeoutMs,
+      hardTimeoutMs,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -1878,6 +1933,7 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   callAiTranslation,
   validateTranscriptBatchRequest,
   normalizeTranslatedSegmentBatch,
+  handleTranslateLiveSubtitle,
   handleSaveNote,
   handleTranslateContent,
   closePanelForTab,
