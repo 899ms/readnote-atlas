@@ -41,14 +41,16 @@ let readnoteSubtitleActiveId = "";
 let readnoteSubtitleTranslationError = "";
 const readnoteSubtitleTranslationRequests = new Set();
 const SUBTITLE_PREFETCH_COUNT = 6;
-const SUBTITLE_PREFETCH_WINDOW = 18;
+const SUBTITLE_PREFETCH_WINDOW = 48;
+const MAX_SUBTITLE_TRANSLATION_REQUESTS = 2;
+let readnoteSubtitleTranslationInflight = 0;
 const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style";
 let readnoteSubtitleStyle = {
   font: "sans",
   size: "medium",
   x: 50,
   y: 78,
-  scale: 1,
+  width: 76,
 };
 
 // ============================================================
@@ -470,9 +472,10 @@ function injectReadnoteSubtitleOverlay(player) {
   style.id = "readnote-subtitle-style";
   style.textContent = `
     #readnote-subtitle-root { position:absolute; inset:0; z-index:48; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,78%); width:max-content; max-width:min(88%,1100px); transform:translate(-50%,-50%) scale(var(--rn-subtitle-scale,1)); transform-origin:center; display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,78%); width:min(var(--rn-subtitle-width,76%),1100px); max-width:94%; padding:4px; border:1px dashed transparent; border-radius:10px; box-sizing:border-box; transform:translate(-50%,-50%); transform-origin:center; display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease,border-color .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+    #readnote-subtitle-root .rn-subtitle-copy:hover { border-color:rgba(255,255,255,.38); }
     #readnote-subtitle-root .rn-subtitle-copy.is-dragging { cursor:grabbing; }
-    #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-align:center; white-space:pre-line; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; pointer-events:none; }
+    #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-align:center; white-space:normal; overflow-wrap:anywhere; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; pointer-events:none; }
     #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
     #readnote-subtitle-root .rn-subtitle-zh { color:#fff7dc; font-weight:550; }
     #readnote-subtitle-root .rn-subtitle-zh.is-pending { color:rgba(255,247,220,.68); font-size:clamp(14px,1.3vw,18px); }
@@ -568,12 +571,19 @@ function normalizeReadnoteSubtitleStyle(value) {
     Number.isFinite(Number(number))
       ? Math.min(max, Math.max(min, Number(number)))
       : fallback;
+  const width = clamp(
+    value?.width,
+    36,
+    94,
+    clamp(76 * Number(value?.scale), 36, 94, 76),
+  );
+  const horizontalMargin = width / 2 + 2;
   return {
     font: value?.font === "serif" ? "serif" : "sans",
     size: ["small", "medium", "large"].includes(value?.size) ? value.size : "medium",
-    x: clamp(value?.x, 10, 90, 50),
+    x: clamp(value?.x, horizontalMargin, 100 - horizontalMargin, 50),
     y: clamp(value?.y, 14, 90, legacyY || 78),
-    scale: clamp(value?.scale, 0.65, 1.75, 1),
+    width,
   };
 }
 
@@ -593,7 +603,7 @@ function applyReadnoteSubtitleStyle() {
   readnoteSubtitleRoot.dataset.size = readnoteSubtitleStyle.size;
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-x", `${readnoteSubtitleStyle.x}%`);
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-y", `${readnoteSubtitleStyle.y}%`);
-  readnoteSubtitleRoot.style.setProperty("--rn-subtitle-scale", String(readnoteSubtitleStyle.scale));
+  readnoteSubtitleRoot.style.setProperty("--rn-subtitle-width", `${readnoteSubtitleStyle.width}%`);
 }
 
 function updateReadnoteSubtitleStyle(action) {
@@ -635,7 +645,7 @@ function setupReadnoteSubtitleTransform(copy, player) {
       startClientY: event.clientY,
       startX: readnoteSubtitleStyle.x,
       startY: readnoteSubtitleStyle.y,
-      startScale: readnoteSubtitleStyle.scale,
+      startWidth: readnoteSubtitleStyle.width,
       width: Math.max(1, bounds.width),
       height: Math.max(1, bounds.height),
     };
@@ -646,18 +656,23 @@ function setupReadnoteSubtitleTransform(copy, player) {
     if (!interaction || event.pointerId !== interaction.pointerId) return;
     event.preventDefault();
     if (interaction.kind === "move") {
+      const horizontalMargin = readnoteSubtitleStyle.width / 2 + 2;
       readnoteSubtitleStyle.x = Math.min(
-        90,
-        Math.max(10, interaction.startX + ((event.clientX - interaction.startClientX) / interaction.width) * 100),
+        100 - horizontalMargin,
+        Math.max(horizontalMargin, interaction.startX + ((event.clientX - interaction.startClientX) / interaction.width) * 100),
       );
       readnoteSubtitleStyle.y = Math.min(
         90,
         Math.max(14, interaction.startY + ((event.clientY - interaction.startClientY) / interaction.height) * 100),
       );
     } else {
-      readnoteSubtitleStyle.scale = Math.min(
-        1.75,
-        Math.max(0.65, interaction.startScale + (event.clientX - interaction.startClientX) / Math.max(220, interaction.width * 0.45)),
+      const maximumWidth = Math.max(
+        36,
+        Math.min(94, 2 * Math.min(readnoteSubtitleStyle.x, 100 - readnoteSubtitleStyle.x) - 4),
+      );
+      readnoteSubtitleStyle.width = Math.min(
+        maximumWidth,
+        Math.max(36, interaction.startWidth + ((event.clientX - interaction.startClientX) / interaction.width) * 200),
       );
     }
     applyReadnoteSubtitleStyle();
@@ -706,16 +721,19 @@ async function refreshReadnoteSubtitleState() {
 
 async function requestReadnoteSubtitleTranslations(startIndex) {
   if (readnoteSubtitleMode !== "bilingual" || readnoteSubtitleTranslationError) return;
+  if (readnoteSubtitleTranslationInflight >= MAX_SUBTITLE_TRANSLATION_REQUESTS) return;
   const videoId = currentReadnoteVideoId();
   if (!videoId) return;
-  const candidates = readnoteSubtitleSegments
-    .slice(Math.max(0, startIndex), Math.max(0, startIndex) + SUBTITLE_PREFETCH_WINDOW)
-    .filter((segment) =>
-      segment?.id && !segment.translation && !readnoteSubtitleTranslationRequests.has(segment.id),
-    )
-    .slice(0, SUBTITLE_PREFETCH_COUNT);
+  const candidates = ReadnoteTranscript.translationCandidates(
+    readnoteSubtitleSegments,
+    startIndex,
+    readnoteSubtitleTranslationRequests,
+    SUBTITLE_PREFETCH_WINDOW,
+    SUBTITLE_PREFETCH_COUNT,
+  );
   if (!candidates.length) return;
   candidates.forEach((segment) => readnoteSubtitleTranslationRequests.add(segment.id));
+  readnoteSubtitleTranslationInflight += 1;
   try {
     const result = await chrome.runtime.sendMessage({
       action: "translateOverlayBatch",
@@ -743,6 +761,11 @@ async function requestReadnoteSubtitleTranslations(startIndex) {
     }
   } catch (error) {
     showReadnoteSubtitleTranslationError(error?.message, candidates);
+  } finally {
+    readnoteSubtitleTranslationInflight = Math.max(
+      0,
+      readnoteSubtitleTranslationInflight - 1,
+    );
   }
 }
 
@@ -815,6 +838,7 @@ function cleanupReadnoteSubtitles() {
   readnoteSubtitleTimeListener = null;
   readnoteSubtitleActiveId = "";
   readnoteSubtitleTranslationError = "";
+  readnoteSubtitleTranslationInflight = 0;
   readnoteSubtitleTranslationRequests.clear();
 }
 

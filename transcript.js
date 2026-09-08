@@ -131,33 +131,29 @@ var ReadnoteTranscript = (() => {
     return match;
   }
 
-  /**
-   * Keeps an overlay caption to two balanced lines. The split prefers natural
-   * punctuation or a word boundary near the middle and never changes the text
-   * stored in the transcript or translation cache.
-   */
   function wrapSubtitle(text) {
-    const clean = normalizeText(text);
-    const hasCjk = /[\u3400-\u9fff]/.test(clean);
-    const singleLineLimit = hasCjk ? 28 : 64;
-    if (clean.length <= singleLineLimit) return clean;
+    return normalizeText(text);
+  }
 
-    const midpoint = clean.length / 2;
-    const lower = clean.length * 0.28;
-    const upper = clean.length * 0.72;
-    const candidates = [];
-    const boundary = /[,.;:!?，。；：！？]\s*|\s+/g;
-    let match;
-    while ((match = boundary.exec(clean))) {
-      const index = match.index + match[0].length;
-      if (index >= lower && index <= upper) candidates.push(index);
-    }
-    const cut = candidates.length
-      ? candidates.reduce((best, index) =>
-          Math.abs(index - midpoint) < Math.abs(best - midpoint) ? index : best,
-        )
-      : Math.round(midpoint);
-    return `${clean.slice(0, cut).trim()}\n${clean.slice(cut).trim()}`;
+  function translationCandidates(
+    segments,
+    startIndex,
+    pendingIds,
+    windowSize = 48,
+    batchSize = 6,
+  ) {
+    if (!Array.isArray(segments) || !segments.length) return [];
+    const start = Math.max(0, Number(startIndex) || 0);
+    const pending = pendingIds instanceof Set ? pendingIds : new Set();
+    const eligible = segments
+      .slice(start, start + windowSize)
+      .filter(
+        (segment) =>
+          segment?.id && !segment.translation && !pending.has(segment.id),
+      );
+    if (!eligible.length) return [];
+    if (eligible[0] === segments[start]) return [eligible[0]];
+    return eligible.slice(0, batchSize);
   }
 
   function isDisplayMode(value) {
@@ -203,6 +199,7 @@ var ReadnoteTranscript = (() => {
     groupEntries,
     activeSegment,
     wrapSubtitle,
+    translationCandidates,
     textFingerprint,
     translationKey,
   };

@@ -42,7 +42,7 @@ test("translation keys include source text so differently grouped captions canno
   assert.notEqual(first, second);
 });
 
-test("long player subtitles split once near a natural midpoint", () => {
+test("long player subtitles keep soft text so width changes can reflow lines", () => {
   const english = transcript.wrapSubtitle(
     "Most great products begin as a very specific personal need, and become useful when that need turns into a repeatable system.",
   );
@@ -50,10 +50,29 @@ test("long player subtitles split once near a natural midpoint", () => {
     "很多优秀产品都源于一个非常具体的个人需求，而当这种需求变成可以反复使用的系统时，产品才真正有价值。",
   );
 
-  assert.equal(english.split("\n").length, 2);
-  assert.match(english, /need,\nand/);
-  assert.equal(chinese.split("\n").length, 2);
-  assert.match(chinese, /，\n/);
+  assert.equal(english.includes("\n"), false);
+  assert.match(english, /need, and/);
+  assert.equal(chinese.includes("\n"), false);
+  assert.match(chinese, /，而当/);
+});
+
+test("the active subtitle is translated first, then future captions prefetch", () => {
+  const segments = Array.from({ length: 12 }, (_, index) => ({
+    id: `segment-${index}`,
+    text: `Caption ${index}`,
+    translation: "",
+  }));
+  const pending = new Set();
+
+  const priority = transcript.translationCandidates(segments, 3, pending, 9, 6);
+  assert.deepEqual(priority.map((item) => item.id), ["segment-3"]);
+
+  pending.add("segment-3");
+  const prefetch = transcript.translationCandidates(segments, 3, pending, 9, 6);
+  assert.deepEqual(
+    prefetch.map((item) => item.id),
+    ["segment-4", "segment-5", "segment-6", "segment-7", "segment-8", "segment-9"],
+  );
 });
 
 test("persists only the 50 most recent bilingual display choices", async () => {

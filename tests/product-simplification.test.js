@@ -55,8 +55,11 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /pointerdown/);
   assert.match(content, /pointermove/);
   assert.match(content, /--rn-subtitle-x/);
-  assert.match(content, /--rn-subtitle-scale/);
+  assert.match(content, /--rn-subtitle-width/);
   assert.match(content, /data-resize-handle/);
+  assert.match(content, /SUBTITLE_PREFETCH_WINDOW = 48/);
+  assert.match(content, /MAX_SUBTITLE_TRANSLATION_REQUESTS = 2/);
+  assert.match(content, /ReadnoteTranscript\.translationCandidates/);
 });
 
 test("article page actions collapse behind one quiet launcher", () => {
