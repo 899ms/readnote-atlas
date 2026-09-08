@@ -7,6 +7,7 @@ import { appendExcerpt } from "./companion-notebook.mjs";
 import { syncExcerptToNotion } from "./companion-notion.mjs";
 import { translateParagraphs, translationProviderStatus } from "./companion-openai.mjs";
 import { isCompanionStatusPageRequest, renderCompanionStatusPage, renderSetupPage } from "./companion-status.mjs";
+import { applyCorsForAllowedOrigin, hasAllowedBrowserOrigin } from "./companion-security.mjs";
 
 loadEnvFile(".env.local");
 
@@ -81,8 +82,7 @@ async function handleSyncExcerpt(request, response) {
   const notion = await syncExcerptToNotion(excerpt, { pageId: notionPageId() });
 
   response.writeHead(200, {
-    "content-type": "application/json",
-    "access-control-allow-origin": "*"
+    "content-type": "application/json"
   });
   response.end(
     JSON.stringify({
@@ -117,24 +117,25 @@ async function handleTranslate(request, response) {
   try {
     const translations = await translateParagraphs(body);
     response.writeHead(200, {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*"
+      "content-type": "application/json"
     });
     response.end(JSON.stringify({ translations }));
   } catch (error) {
     const message = String(error?.message ?? error);
     response.writeHead(message.endsWith("_api_key_missing") ? 501 : 502, {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*"
+      "content-type": "application/json"
     });
     response.end(JSON.stringify({ error: message }));
   }
 }
 
 createServer((request, response) => {
-  response.setHeader("access-control-allow-origin", "*");
-  response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  response.setHeader("access-control-allow-headers", "content-type");
+  if (!hasAllowedBrowserOrigin(request)) {
+    response.writeHead(403, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "origin_not_allowed" }));
+    return;
+  }
+  applyCorsForAllowedOrigin(request, response);
 
   if (request.method === "OPTIONS") {
     response.writeHead(204);
@@ -179,14 +180,8 @@ createServer((request, response) => {
     response.end(
       JSON.stringify({
         ok: true,
-        profileName: status.profileName,
-        notionPageId: settings.notionPageId,
-        obsidianNotebookPath: settings.obsidianPath,
         notionConfigured: status.notionConfigured,
         obsidianConfigured: status.obsidianConfigured,
-        openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
-        translationProvider: translation.provider,
-        translationModel: translation.model,
         translationConfigured: translation.configured
       })
     );

@@ -121,74 +121,15 @@ test("language controls expose a labelled group and one pressed button", () => {
   assert.equal(buttons[1].attributes["aria-pressed"], "true");
 });
 
-test("customization guidance is concise and has a visible placeholder reminder", () => {
+test("Settings stays focused on providers, knowledge destinations, and local data", () => {
   const html = read("options.html");
-  const steps = html.match(
-    /<ol class="customization-steps">([\s\S]*?)<\/ol>/,
-  );
-
-  assert.ok(steps, "Expected a numbered customization guide");
-  assert.equal((steps[1].match(/<li\b/g) || []).length, 3);
-  assert.match(html, /class="prompt-reminder"/);
-  assert.match(html, /role="note"/);
-  assert.equal(
-    options.translate("zh-CN", "customizationReminder"),
-    "复制前，请先把 [PROVIDER] 和 [MODEL] 替换成你想使用的服务和模型。",
-  );
-  assert.equal(
-    options.translate("en", "customizationStepFolder"),
-    "Open the extracted Readnote Studio project folder in your coding agent.",
-  );
-  assert.equal(
-    options.translate("zh-CN", "customizationStepFolder"),
-    "在编程 Agent 中打开 Readnote Studio 解压后的项目文件夹。",
-  );
-  assert.doesNotMatch(html, /~\/Documents\/readnote-studio/);
-  assert.doesNotMatch(html, /%USERPROFILE%\\Documents\\readnote-studio/);
-});
-
-test("customization prompt switches languages and preserves technical values", () => {
-  const html = read("options.html");
-  const englishPrompt = options.translate("en", "customizationPrompt");
-  const chinesePrompt = options.translate("zh-CN", "customizationPrompt");
-
   assert.match(html, /placeholder="Paste your Supadata key"/);
   assert.match(html, /placeholder="Paste your DeepSeek key"/);
   assert.match(html, /https:\/\/dash\.supadata\.ai\/auth\/sign-up/);
   assert.match(html, /https:\/\/platform\.deepseek\.com\/api_keys/);
-  assert.ok(html.includes(`>${englishPrompt}</textarea>`));
-  assert.match(chinesePrompt, /^请把当前本地 Readnote Studio 工作区改为使用/);
-  assert.notEqual(chinesePrompt, englishPrompt);
-  assert.match(
-    englishPrompt,
-    /Keep DeepSeek-only request fields and retry behavior isolated to DeepSeek\. Handle provider-specific rules separately so one provider does not affect another\./,
-  );
-  assert.match(
-    chinesePrompt,
-    /DeepSeek 专用的请求参数和重试逻辑继续只用于 DeepSeek。新服务的专属规则请单独处理，避免相互影响。/,
-  );
-
-  for (const prompt of [englishPrompt, chinesePrompt]) {
-    assert.match(prompt, /\[PROVIDER\]/);
-    assert.match(prompt, /\[MODEL\]/);
-    assert.match(prompt, /manifest\.json/);
-    assert.match(prompt, /README\.md/);
-    assert.match(prompt, /README\.zh-CN\.md/);
-    assert.match(prompt, /PRIVACY\.md/);
-    assert.match(prompt, /SECURITY\.md/);
-    assert.match(prompt, /npm test/);
-    assert.match(prompt, /npm run check/);
-    assert.match(prompt, /npm run package/);
-    assert.doesNotMatch(prompt, /—/);
-  }
-  const textareaTag = html.match(/<textarea id="customizationPrompt"[^>]*>/);
-  assert.ok(textareaTag, "Expected the customization prompt textarea");
-  assert.doesNotMatch(textareaTag[0], /\sreadonly(?:\s|=|>)/);
-  assert.match(
-    textareaTag[0],
-    /aria-describedby="customizationPromptReminder"/,
-  );
-  assert.doesNotMatch(html, /<textarea id="customizationPrompt"[^>]*data-i18n/);
+  assert.match(html, /Knowledge base · 个人知识库/);
+  assert.match(html, /data-i18n="localData"/);
+  assert.doesNotMatch(html, /coding agent|customizationPrompt/i);
 });
 
 test("language switching preserves edited prompt drafts for the page session", () => {

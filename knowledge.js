@@ -10,15 +10,13 @@ var ReadnoteKnowledge = (() => {
 
   function noteToExcerpt(note) {
     const createdAt = new Date(Number(note?.createdAt) || Date.now()).toISOString();
-    const channel = String(note?.channelName || "").trim();
-    const timestamp = String(note?.timestamp || "0:00").trim();
     return {
       id: String(note?.id || `note_${Date.now()}`),
       sourceId: youtubeSourceId(note?.timestampedUrl),
       sourceTitle: String(note?.videoTitle || "Untitled Video").trim(),
       sourceUrl: String(note?.timestampedUrl || "").trim(),
       text: String(note?.text || "").trim(),
-      note: [channel ? `Channel: ${channel}` : "", timestamp].filter(Boolean).join(" · "),
+      note: String(note?.personalNote || "").trim(),
       translation: String(note?.translation || "").trim(),
       createdAt,
     };

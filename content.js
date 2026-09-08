@@ -250,8 +250,7 @@ function createDigestButton() {
   digestButton.setAttribute("aria-label", "Open Readnote Studio");
   digestButton.innerHTML = `<span class="ytd-digest-label">Readnote</span>`;
 
-  // Style the button — rounded pill in our terracotta accent, sized to sit
-  // comfortably among YouTube's native action buttons.
+  // Compact Readnote action, sized to sit with YouTube's native controls.
   digestButton.style.cssText = `
     display: inline-flex;
     align-items: center;
@@ -260,7 +259,7 @@ function createDigestButton() {
     height: 36px;
     border: none;
     border-radius: 18px;
-    background: #c8674f;
+    background: #0969da;
     color: white;
     font-family: "Roboto", "Arial", sans-serif;
     font-size: 14px;
@@ -278,12 +277,12 @@ function createDigestButton() {
 
   // Hover effects
   digestButton.addEventListener("mouseenter", () => {
-    digestButton.style.background = "#b25742";
+    digestButton.style.background = "#0550ae";
     digestButton.style.transform = "scale(1.02)";
   });
 
   digestButton.addEventListener("mouseleave", () => {
-    digestButton.style.background = "#c8674f";
+    digestButton.style.background = "#0969da";
     digestButton.style.transform = "scale(1)";
   });
 
@@ -440,10 +439,6 @@ function setupReadnoteSubtitles() {
     video.addEventListener("timeupdate", readnoteSubtitleTimeListener);
     video.addEventListener("seeking", readnoteSubtitleTimeListener);
     void refreshReadnoteSubtitleState();
-    readnoteSubtitleRefreshTimer = setInterval(
-      refreshReadnoteSubtitleState,
-      10_000,
-    );
   };
 
   attempt();
@@ -461,12 +456,13 @@ function injectReadnoteSubtitleOverlay(player) {
     #readnote-subtitle-root { position:absolute; inset:0; z-index:48; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
     #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:50%; bottom:11%; width:min(88%,1100px); transform:translateX(-50%); display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease; }
     #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+    #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
     #readnote-subtitle-root .rn-subtitle-zh { color:#fff7dc; font-weight:550; }
     #readnote-subtitle-root .rn-subtitle-zh.is-pending { color:rgba(255,247,220,.68); font-size:clamp(14px,1.3vw,18px); }
     #readnote-subtitle-root .rn-subtitle-controls { position:absolute; top:14px; left:14px; display:flex; padding:3px; gap:2px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(15,15,16,.74); opacity:0; pointer-events:auto; backdrop-filter:blur(14px); transition:opacity .18s ease; }
     #movie_player:hover #readnote-subtitle-root .rn-subtitle-controls, #readnote-subtitle-root .rn-subtitle-controls:focus-within { opacity:1; }
     #readnote-subtitle-root .rn-subtitle-mode { min-width:45px; height:28px; padding:0 10px; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.72); font:600 11px/1 Inter,system-ui,sans-serif; cursor:pointer; }
-    #readnote-subtitle-root .rn-subtitle-mode[aria-pressed="true"] { background:#c8674f; color:white; }
+    #readnote-subtitle-root .rn-subtitle-mode[aria-pressed="true"] { background:#0969da; color:white; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-copy { opacity:0; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-controls { opacity:1; }
   `;
@@ -523,8 +519,14 @@ async function refreshReadnoteSubtitleState() {
     }
     updateReadnoteSubtitleControls();
     renderReadnoteSubtitle();
+    clearTimeout(readnoteSubtitleRefreshTimer);
+    readnoteSubtitleRefreshTimer = setTimeout(
+      refreshReadnoteSubtitleState,
+      result?.success ? 60_000 : 10_000,
+    );
   } catch (_error) {
-    // The side panel may still be fetching the transcript. The next refresh retries.
+    clearTimeout(readnoteSubtitleRefreshTimer);
+    readnoteSubtitleRefreshTimer = setTimeout(refreshReadnoteSubtitleState, 10_000);
   }
 }
 
@@ -541,6 +543,8 @@ async function requestReadnoteSubtitleTranslation(segment) {
     if (result?.success && result.translation) {
       segment.translation = result.translation;
       if (readnoteSubtitleActiveId === segment.id) renderReadnoteSubtitle();
+    } else {
+      setTimeout(() => readnoteSubtitleTranslationRequests.delete(segment.id), 10_000);
     }
   } catch (_error) {
     // Keep the original subtitle visible. A later playback pass can retry.
@@ -659,7 +663,7 @@ function injectNoteButton() {
     <span>Note</span>
   `;
 
-  // Soft rounded pill in the terracotta accent, with a gentle shadow.
+  // Compact Readnote-blue action with a restrained shadow.
   // Start hidden; visibility is controlled by mouse activity.
   noteButton.style.cssText = `
     position: absolute;
@@ -669,7 +673,7 @@ function injectNoteButton() {
     display: flex;
     align-items: center;
     padding: 9px 16px;
-    background: #c8674f;
+    background: #0969da;
     color: white;
     border: none;
     border-radius: 999px;
@@ -706,13 +710,13 @@ function injectNoteButton() {
 
   // Hover effect — lift slightly
   noteButton.addEventListener("mouseenter", () => {
-    noteButton.style.background = "#b25742";
+    noteButton.style.background = "#0550ae";
     noteButton.style.boxShadow = "0 6px 18px rgba(0,0,0,0.35)";
     noteButton.style.transform = "translateY(-1px)";
   });
 
   noteButton.addEventListener("mouseleave", () => {
-    noteButton.style.background = "#c8674f";
+    noteButton.style.background = "#0969da";
     noteButton.style.boxShadow = "0 4px 14px rgba(0,0,0,0.3)";
     noteButton.style.transform = "translateY(0)";
   });
@@ -838,7 +842,7 @@ async function saveCurrentNote() {
   setTimeout(() => {
     if (noteButton) {
       noteButton.innerHTML = originalContent;
-      noteButton.style.background = "#c8674f";
+      noteButton.style.background = "#0969da";
       noteButton.style.pointerEvents = "auto";
     }
   }, 2000);
@@ -855,11 +859,11 @@ function showNoteSavedToast(note) {
   const toast = document.createElement("div");
   toast.id = "ytd-note-toast";
   toast.innerHTML = `
-    <div style="font-weight: 700; margin-bottom: 6px; color: #c8674f;">Note saved</div>
-    <div style="font-size: 12px; color: #6b6258; margin-bottom: 8px;">${escapeHtmlForContent(note.timestamp)} — ${escapeHtmlForContent(note.videoTitle)}</div>
-    <div style="font-size: 13px; line-height: 1.55; color: #2e2a24;">"${escapeHtmlForContent(note.text)}"</div>
+    <div style="font-weight: 700; margin-bottom: 6px; color: #0969da;">Note saved</div>
+    <div style="font-size: 12px; color: #57606a; margin-bottom: 8px;">${escapeHtmlForContent(note.timestamp)} — ${escapeHtmlForContent(note.videoTitle)}</div>
+    <div style="font-size: 13px; line-height: 1.55; color: #24292f;">"${escapeHtmlForContent(note.text)}"</div>
     <div style="margin-top: 10px; font-size: 11px;">
-      <a href="${escapeHtmlForContent(note.timestampedUrl)}" style="color: #c8674f; font-weight: 600; text-decoration: none;">Copy link</a>
+      <a href="${escapeHtmlForContent(note.timestampedUrl)}" style="color: #0969da; font-weight: 600; text-decoration: none;">Copy link</a>
     </div>
   `;
 

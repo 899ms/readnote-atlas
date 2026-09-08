@@ -61,6 +61,7 @@ public_allowlist=(
   "scripts/companion/companion-notion.mjs"
   "scripts/companion/companion-openai.mjs"
   "scripts/companion/companion-proxy.mjs"
+  "scripts/companion/companion-security.mjs"
   "scripts/companion/companion-server.mjs"
   "scripts/companion/companion-status.mjs"
 )
@@ -87,6 +88,7 @@ required_public_files=(
   "LICENSE"
   "package.json"
   "scripts/companion/companion-server.mjs"
+  "scripts/companion/companion-security.mjs"
 )
 
 for file in "${required_public_files[@]}"; do

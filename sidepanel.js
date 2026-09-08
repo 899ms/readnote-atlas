@@ -1060,43 +1060,54 @@ function seekFromTranscriptEntryClick(event, seconds) {
   seekTo(seconds);
 }
 
+function resetTranscriptList() {
+  const transcriptList = document.getElementById("transcriptList");
+  if (!transcriptList) return null;
+  transcriptList.innerHTML = "";
+  document.getElementById("transcriptSourceBadge")?.remove();
+  return transcriptList;
+}
+
+function createTranscriptRow(segment, { className = "", index, content }) {
+  const div = document.createElement("div");
+  div.className = `transcript-entry ${className}`.trim();
+  div.dataset.seconds = segment.start;
+  if (segment.id) div.dataset.segmentId = segment.id;
+  if (Number.isInteger(index)) div.dataset.segmentIndex = index;
+  const minutes = Math.floor(segment.start / 60);
+  const seconds = Math.floor(segment.start % 60);
+  div.innerHTML = `
+    <span class="transcript-time">${minutes}:${String(seconds).padStart(2, "0")}</span>
+    ${content}
+  `;
+  div.addEventListener("click", (event) =>
+    seekFromTranscriptEntryClick(event, segment.start),
+  );
+  return div;
+}
+
+function finishTranscriptRows() {
+  refreshTranscriptSearch({ preserveIndex: false, scroll: false });
+  startPlaybackTracking();
+}
+
 function renderTranscript() {
   if (!currentTranscript) return;
 
-  const transcriptList = document.getElementById("transcriptList");
-  transcriptList.innerHTML = "";
-
-  const existingBadge = document.getElementById("transcriptSourceBadge");
-  if (existingBadge) existingBadge.remove();
+  const transcriptList = resetTranscriptList();
+  if (!transcriptList) return;
 
   // Group entries using smart sentence-boundary + time-guardrail logic
   const grouped = groupTranscriptEntries(currentTranscript);
 
   grouped.forEach((group) => {
-    const div = document.createElement("div");
-    div.className = "transcript-entry";
-    div.dataset.seconds = group.start;
-
-    const minutes = Math.floor(group.start / 60);
-    const seconds = Math.floor(group.start % 60);
-    const timestamp = `${minutes}:${String(seconds).padStart(2, "0")}`;
-
-    div.innerHTML = `
-      <span class="transcript-time">${timestamp}</span>
-      <span class="transcript-text">${renderSubtitleInlineMarkup(group.text)}</span>
-    `;
-
-    div.addEventListener("click", (event) =>
-      seekFromTranscriptEntryClick(event, group.start),
+    transcriptList.appendChild(
+      createTranscriptRow(group, {
+        content: `<span class="transcript-text">${renderSubtitleInlineMarkup(group.text)}</span>`,
+      }),
     );
-    transcriptList.appendChild(div);
   });
-
-  // Reapply an active query after a language mode rerenders the transcript.
-  refreshTranscriptSearch({ preserveIndex: false, scroll: false });
-
-  // Start tracking video playback for auto-scroll
-  startPlaybackTracking();
+  finishTranscriptRows();
 }
 
 // ============================================================
@@ -1706,6 +1717,38 @@ function dismissSelectionActions(clearSelection = false) {
   if (clearSelection) window.getSelection()?.removeAllRanges();
 }
 
+function askForPersonalNote(selectedText) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "personal-note-overlay";
+    overlay.innerHTML = `
+      <form class="personal-note-dialog">
+        <div class="personal-note-heading">Add a personal note</div>
+        <div class="personal-note-excerpt">${escapeHtml(selectedText)}</div>
+        <textarea class="personal-note-input" rows="4" maxlength="3000" placeholder="Why does this matter to you?"></textarea>
+        <div class="personal-note-actions">
+          <button class="note-action-btn personal-note-cancel" type="button">Cancel</button>
+          <button class="enhance-btn personal-note-save" type="submit">Save excerpt</button>
+        </div>
+      </form>
+    `;
+    const finish = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelector(".personal-note-cancel").addEventListener("click", () => finish(null));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) finish(null);
+    });
+    overlay.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      finish(overlay.querySelector("textarea").value.trim());
+    });
+    document.body.appendChild(overlay);
+    overlay.querySelector("textarea").focus();
+  });
+}
+
 /**
  * Sets up text selection handling in the transcript.
  * When the user selects text, shows Explain and Note actions.
@@ -1827,6 +1870,10 @@ function setupExplainFeature() {
       if (!selectedText || !currentVideoId) return;
 
       const button = event.currentTarget;
+      tooltip.style.display = "none";
+      const personalNote = await askForPersonalNote(selectedText);
+      if (personalNote === null) return;
+
       const originalText = button.textContent;
       button.textContent = "Saving...";
       button.disabled = true;
@@ -1839,6 +1886,7 @@ function setupExplainFeature() {
           videoTitle: currentVideoTitle,
           channelName: currentChannelName,
           selectedText,
+          personalNote,
         });
 
         if (!result?.success) {
@@ -2145,6 +2193,7 @@ function renderNotes(notes, filteredVideoId) {
         ${!filteredVideoId ? `<span class="note-video-title">${escapeHtml(note.videoTitle)}</span>` : ""}
       </div>
       <div class="note-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>
+      ${note.personalNote ? `<div class="note-personal">${escapeHtml(note.personalNote)}</div>` : ""}
       <div class="knowledge-sync-row">
         <span class="knowledge-sync-badge" data-status="${escapeHtml(note.knowledgeSync?.status || "unavailable")}">${escapeHtml(knowledgeSyncLabel(note))}</span>
       </div>
@@ -2657,42 +2706,23 @@ function renderTranscriptSegmentContent(segment, mode, translated, error) {
 }
 
 function renderTranscriptModeRows(segments, mode) {
-  const transcriptList = document.getElementById("transcriptList");
+  const transcriptList = resetTranscriptList();
   if (!transcriptList) return [];
-  transcriptList.innerHTML = "";
-
-  const existingBadge = document.getElementById("transcriptSourceBadge");
-  if (existingBadge) existingBadge.remove();
 
   const rows = [];
   segments.forEach((segment, index) => {
-    const div = document.createElement("div");
     const cached = transcriptParagraphCache.get(
       transcriptTranslationCacheKey(segment),
     );
-    div.className = `transcript-entry ${cached ? "translated" : "translating"}`;
-    div.dataset.seconds = segment.start;
-    div.dataset.segmentId = segment.id;
-    div.dataset.segmentIndex = index;
-
-    const minutes = Math.floor(segment.start / 60);
-    const seconds = Math.floor(segment.start % 60);
-    const timestamp = `${minutes}:${String(seconds).padStart(2, "0")}`;
-    div.innerHTML = `
-      <span class="transcript-time">${timestamp}</span>
-      ${renderTranscriptSegmentContent(segment, mode, cached, "")}
-    `;
-    div.addEventListener("click", (event) =>
-      seekFromTranscriptEntryClick(event, segment.start),
-    );
+    const div = createTranscriptRow(segment, {
+      className: cached ? "translated" : "translating",
+      index,
+      content: renderTranscriptSegmentContent(segment, mode, cached, ""),
+    });
     transcriptList.appendChild(div);
     rows.push(div);
   });
-
-  // Bilingual mode can find source text before each translation arrives.
-  refreshTranscriptSearch({ preserveIndex: false, scroll: false });
-
-  startPlaybackTracking();
+  finishTranscriptRows();
   return rows;
 }
 

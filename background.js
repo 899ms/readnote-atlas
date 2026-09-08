@@ -32,6 +32,7 @@ const OVERLAY_SEGMENT_LIMITS = Object.freeze({
   maxSeconds: 8,
 });
 const COMPANION_URL = "http://127.0.0.1:8791";
+const overlayTranscriptRequests = new Map();
 
 async function getSettings() {
   const stored = await chrome.storage.local.get(YTD_SETTINGS.STORAGE_KEY);
@@ -399,6 +400,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       message.videoTitle,
       message.channelName,
       message.selectedText,
+      message.personalNote,
     )
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
@@ -423,6 +425,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "syncNote") {
     handleSyncNote(message.noteId)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === "syncArticleExcerpt") {
+    handleSyncArticleExcerpt(message.excerpt)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === "translateArticle") {
+    handleTranslateArticle(message.payload)
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -663,6 +679,33 @@ async function getPlayerVideoDetails(tabId) {
 // TRANSCRIPT FETCHING VIA SUPADATA API
 // ============================================================
 
+function normalizeTranscriptPayload(data) {
+  const transcript = [];
+  const plainLines = [];
+  const timestampedLines = [];
+  for (const chunk of Array.isArray(data?.content) ? data.content : []) {
+    const cleanText = String(chunk?.text || "").replace(/>> ?/g, "").trim();
+    if (!cleanText) continue;
+    const startSeconds = Math.floor((Number(chunk.offset) || 0) / 1000);
+    const minutes = Math.floor(startSeconds / 60);
+    const seconds = startSeconds % 60;
+    transcript.push({
+      text: cleanText,
+      start: startSeconds,
+      duration: Math.floor((Number(chunk.duration) || 0) / 1000),
+      language: chunk.lang || data.lang || null,
+    });
+    plainLines.push(cleanText);
+    timestampedLines.push(`[${minutes}:${String(seconds).padStart(2, "0")}] ${cleanText}`);
+  }
+  return {
+    transcript,
+    transcriptText: plainLines.join(" "),
+    transcriptTextTimestamped: timestampedLines.join("\n"),
+    language: typeof data?.lang === "string" ? data.lang : null,
+  };
+}
+
 /**
  * Fetches the transcript for a YouTube video using Supadata API.
  *
@@ -751,44 +794,9 @@ async function handleFetchTranscript(videoId) {
 
     const data = await response.json();
 
-    // Parse the response into our internal format
-    // Supadata returns: { content: [{ text, offset, duration, lang }], lang, availableLangs }
-    const transcript = [];
-    let transcriptTextPlain = ""; // Plain text for display/export
-    let transcriptTextTimestamped = ""; // Timestamped text for AI analysis
+    const normalized = normalizeTranscriptPayload(data);
 
-    if (data.content && Array.isArray(data.content)) {
-      for (const chunk of data.content) {
-        if (chunk.text) {
-          // Clean up caption artifacts:
-          // ">>" = speaker change marker from YouTube auto-captions
-          const cleanText = chunk.text.replace(/>> ?/g, "").trim();
-          if (!cleanText) continue; // Skip if nothing left after cleanup
-
-          // offset is in milliseconds, convert to seconds
-          const startSeconds = Math.floor((chunk.offset || 0) / 1000);
-          const minutes = Math.floor(startSeconds / 60);
-          const seconds = startSeconds % 60;
-          const timestamp = `${minutes}:${String(seconds).padStart(2, "0")}`;
-
-          transcript.push({
-            text: cleanText,
-            start: startSeconds,
-            duration: Math.floor((chunk.duration || 0) / 1000),
-            language: chunk.lang || data.lang || null,
-          });
-
-          // Plain text without timestamps (for display/export)
-          transcriptTextPlain += cleanText + " ";
-
-          // Timestamped text for DeepSeek (format: [MM:SS] text)
-          // This allows the model to reference actual transcript positions.
-          transcriptTextTimestamped += `[${timestamp}] ${cleanText}\n`;
-        }
-      }
-    }
-
-    if (transcript.length === 0) {
+    if (normalized.transcript.length === 0) {
       return {
         success: false,
         error: "EMPTY_TRANSCRIPT",
@@ -796,13 +804,7 @@ async function handleFetchTranscript(videoId) {
       };
     }
 
-    return {
-      success: true,
-      transcript: transcript,
-      transcriptText: transcriptTextPlain.trim(), // For display
-      transcriptTextTimestamped: transcriptTextTimestamped.trim(), // For AI
-      language: typeof data.lang === "string" ? data.lang : null,
-    };
+    return { success: true, ...normalized };
   } catch (error) {
     console.error("Transcript fetch error:", error);
     return {
@@ -841,42 +843,11 @@ async function pollTranscriptJob(jobId, supadataApiKey) {
     const data = await response.json();
 
     if (data.status === "completed") {
-      // Parse the completed transcript
-      const transcript = [];
-      let transcriptTextPlain = "";
-      let transcriptTextTimestamped = "";
-
-      if (data.content && Array.isArray(data.content)) {
-        for (const chunk of data.content) {
-          if (chunk.text) {
-            // Clean up caption artifacts (">>" = speaker change marker)
-            const cleanText = chunk.text.replace(/>> ?/g, "").trim();
-            if (!cleanText) continue;
-
-            const startSeconds = Math.floor((chunk.offset || 0) / 1000);
-            const minutes = Math.floor(startSeconds / 60);
-            const seconds = startSeconds % 60;
-            const timestamp = `${minutes}:${String(seconds).padStart(2, "0")}`;
-
-            transcript.push({
-              text: cleanText,
-              start: startSeconds,
-              duration: Math.floor((chunk.duration || 0) / 1000),
-              language: chunk.lang || data.lang || null,
-            });
-            transcriptTextPlain += cleanText + " ";
-            transcriptTextTimestamped += `[${timestamp}] ${chunk.text}\n`;
-          }
-        }
+      const normalized = normalizeTranscriptPayload(data);
+      if (!normalized.transcript.length) {
+        throw new Error("Supadata returned an empty transcript.");
       }
-
-      return {
-        success: true,
-        transcript: transcript,
-        transcriptText: transcriptTextPlain.trim(),
-        transcriptTextTimestamped: transcriptTextTimestamped.trim(),
-        language: typeof data.lang === "string" ? data.lang : null,
-      };
+      return { success: true, ...normalized };
     }
 
     if (data.status === "failed") {
@@ -1172,11 +1143,35 @@ async function handleGetOverlayState(videoId) {
     cacheKey,
     OVERLAY_MODE_STORAGE_KEY,
   ]);
-  const cached = stored[cacheKey];
+  let cached = stored[cacheKey];
   const configuredMode = stored[OVERLAY_MODE_STORAGE_KEY]?.[videoId]?.mode;
   const mode = OVERLAY_MODES.has(configuredMode) ? configuredMode : "bilingual";
   if (!cached?.transcript?.length) {
-    return { success: false, pending: true, mode };
+    let request = overlayTranscriptRequests.get(videoId);
+    if (!request) {
+      request = handleFetchTranscript(videoId).finally(() => {
+        overlayTranscriptRequests.delete(videoId);
+      });
+      overlayTranscriptRequests.set(videoId, request);
+    }
+    const transcriptResult = await request;
+    if (!transcriptResult?.success) {
+      return {
+        success: false,
+        pending: false,
+        mode,
+        error: transcriptResult?.error || "Transcript unavailable.",
+      };
+    }
+    cached = {
+      transcript: transcriptResult.transcript,
+      transcriptText: transcriptResult.transcriptText,
+      transcriptTextTimestamped: transcriptResult.transcriptTextTimestamped,
+      transcriptLanguage: transcriptResult.language || null,
+      paragraphCache: {},
+      cachedAt: Date.now(),
+    };
+    await chrome.storage.local.set({ [cacheKey]: cached });
   }
 
   const translations = cached.paragraphCache || {};
@@ -1278,6 +1273,37 @@ async function syncNoteToKnowledgeBase(note) {
   }
 }
 
+async function companionPost(path, body) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(`${COMPANION_URL}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    return { success: response.ok, ...data };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function handleSyncArticleExcerpt(excerpt) {
+  if (!excerpt?.id || !excerpt?.text || !excerpt?.sourceUrl) {
+    return { success: false, error: "Invalid excerpt." };
+  }
+  return companionPost("/sync-excerpt", { excerpt });
+}
+
+async function handleTranslateArticle(payload) {
+  if (!Array.isArray(payload?.paragraphs) || !payload.paragraphs.length) {
+    return { success: false, error: "No article paragraphs supplied." };
+  }
+  return companionPost("/translate", payload);
+}
+
 async function replaceStoredNote(note) {
   const result = await chrome.storage.local.get("ytd_notes");
   const notes = (result.ytd_notes || []).map((item) =>
@@ -1312,6 +1338,7 @@ async function handleSaveNote(
   videoTitle,
   channelName,
   selectedText,
+  personalNote,
 ) {
   try {
     const canonicalVideoUrl = YTD_SETTINGS.canonicalYouTubeUrl(videoId);
@@ -1319,6 +1346,10 @@ async function handleSaveNote(
     const exactSelectedText =
       typeof selectedText === "string"
         ? selectedText.replace(/\s+/g, " ").trim().slice(0, 3000)
+        : "";
+    const safePersonalNote =
+      typeof personalNote === "string"
+        ? personalNote.replace(/\s+/g, " ").trim().slice(0, 3000)
         : "";
 
     // A selected transcript note is already the exact text the user wants.
@@ -1340,6 +1371,7 @@ async function handleSaveNote(
         timestampedUrl: `${canonicalVideoUrl}&t=${safeTimestamp}s`,
         text: exactSelectedText,
         rawText: exactSelectedText,
+        personalNote: safePersonalNote,
         knowledgeSync: { status: "syncing", obsidian: "unknown", notion: "unknown" },
         createdAt: Date.now(),
       };
@@ -1474,6 +1506,7 @@ async function handleSaveNote(
       timestampedUrl: timestampedUrl,
       text: cleanedText,
       rawText: matchedLine.text,
+      personalNote: safePersonalNote,
       knowledgeSync: { status: "syncing", obsidian: "unknown", notion: "unknown" },
       createdAt: Date.now(),
     };

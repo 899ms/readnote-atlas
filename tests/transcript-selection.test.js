@@ -8,7 +8,7 @@ const source = fs.readFileSync(
   "utf8",
 );
 
-test("all timestamped transcript row clicks use the selection-aware seek helper", () => {
+test("all timestamped transcript rows share the selection-aware renderer", () => {
   assert.match(
     source,
     /function hasNonCollapsedTextSelection\(\)[\s\S]*?selection\.rangeCount > 0 && !selection\.isCollapsed/,
@@ -18,22 +18,18 @@ test("all timestamped transcript row clicks use the selection-aware seek helper"
     /function seekFromTranscriptEntryClick\(event, seconds\)[\s\S]*?if \(hasNonCollapsedTextSelection\(\)\) \{[\s\S]*?event\.preventDefault\(\);[\s\S]*?event\.stopPropagation\(\);[\s\S]*?return;[\s\S]*?\}[\s\S]*?seekTo\(seconds\);/,
   );
 
-  const guardedRowHandlers = source.match(
-    /div\.addEventListener\("click", \(event\) =>\s+seekFromTranscriptEntryClick\(event, group\.start\),\s+\);/g,
-  );
-  assert.equal(
-    guardedRowHandlers?.length,
-    1,
-    "raw transcript rows must use the guard",
+  assert.match(
+    source,
+    /function createTranscriptRow\(segment,[\s\S]*?div\.addEventListener\("click", \(event\) =>\s+seekFromTranscriptEntryClick\(event, segment\.start\)/,
+    "the shared row builder must use the selection guard",
   );
   assert.match(
     source,
-    /div\.addEventListener\("click", \(event\) =>\s+seekFromTranscriptEntryClick\(event, segment\.start\),\s+\);/,
-    "translated-only and bilingual rows must use the guard",
+    /renderTranscript\(\)[\s\S]*?createTranscriptRow\(group/,
   );
-  assert.doesNotMatch(
+  assert.match(
     source,
-    /div\.addEventListener\("click", \(\) => seekTo\(group\.start\)\);/,
+    /renderTranscriptModeRows\(segments, mode\)[\s\S]*?createTranscriptRow\(segment/,
   );
 });
 

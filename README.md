@@ -89,7 +89,7 @@ npm run companion   # start the local knowledge companion
 ## Current boundaries
 
 - YouTube Shorts, live streams, private videos, and videos without native captions are not supported.
-- The player subtitle layer starts after the side panel has fetched and cached the transcript.
+- The player subtitle layer fetches and caches native captions automatically; opening the side panel is optional.
 - YouTube features currently use Supadata and DeepSeek; article translation can use DeepSeek, OpenAI, or MiniMax through the companion.
 - Chrome is the supported browser for this first release.
 

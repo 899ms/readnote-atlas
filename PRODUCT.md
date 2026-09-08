@@ -18,7 +18,7 @@ The loop is identical for text and video. A video timestamp plays the same role 
 2. **Progressive cost.** Transcript retrieval, translation, and overview generation happen only when the user reaches or requests them.
 3. **Precise capture before synthesis.** Notes preserve the exact excerpt, source URL, title, and timestamp before AI cleanup or commentary.
 4. **User-owned memory.** Local storage is the safety net; Obsidian and Notion are destinations chosen by the user.
-5. **Quiet interface.** Warm editorial surfaces, one terracotta accent, and controls that recede while reading or watching.
+5. **Quiet interface.** The Readnote visual language uses dark ink, paper-white surfaces, restrained blue actions, and pale-yellow selection; shadows, rounding, and decoration recede while reading or watching.
 
 ## Information architecture
 

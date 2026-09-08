@@ -286,7 +286,6 @@
 	//#region src/article-reader/index.ts
 	var TOOLBAR_WIDTH = 312;
 	var TOOLBAR_HEIGHT = 34;
-	var COMPANION_URL = "http://127.0.0.1:8791";
 	var currentSource = null;
 	var toolbar = null;
 	var noteEditor = null;
@@ -740,13 +739,13 @@
 	}
 	async function syncExcerpt(excerpt) {
 		try {
-			const response = await fetch(`${COMPANION_URL}/sync-excerpt`, {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ excerpt })
+			const data = await chrome.runtime.sendMessage({
+				action: "syncArticleExcerpt",
+				excerpt
 			});
-			if (!response.ok) return "saved";
-			return (await response.json()).notion === "synced" ? "synced" : "obsidian_only";
+			if (!data.success) return "saved";
+			if (data.notion === "synced") return "synced";
+			return data.obsidian === "synced" ? "obsidian_only" : "saved";
 		} catch {
 			return "saved";
 		}
@@ -829,19 +828,17 @@
 	}
 	async function requestTranslations(paragraphs) {
 		try {
-			const response = await fetch(`${COMPANION_URL}/translate`, {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
+			const data = await chrome.runtime.sendMessage({
+				action: "translateArticle",
+				payload: {
 					source: {
 						title: document.title,
 						url: canonicalizeUrl(location.href)
 					},
 					paragraphs
-				})
+				}
 			});
-			if (!response.ok) return null;
-			const data = await response.json();
+			if (!data.success) return null;
 			return data.translations?.length === paragraphs.length ? data.translations : null;
 		} catch {
 			return null;

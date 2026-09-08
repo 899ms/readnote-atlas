@@ -51,6 +51,22 @@ test("video UI includes full transcript, knowledge sync, and player subtitle con
   assert.match(contentScript, /data-mode="bilingual">中英/);
   assert.match(contentScript, /action: "translateOverlaySegment"/);
   assert.match(contentScript, /ReadnoteTranscript\.activeSegment/);
+  assert.match(contentScript, /result\?\.success \? 60_000 : 10_000/);
+  assert.match(panelScript, /personalNote/);
+  assert.match(panelScript, /Add a personal note/);
+});
+
+test("all product surfaces use the restrained Readnote visual language", () => {
+  const surfaces = [
+    read("sidepanel.css"),
+    read("options.css"),
+    read("content.js"),
+    read("docs/preview.html"),
+  ].join("\n");
+  assert.match(surfaces, /#0969da/);
+  assert.match(surfaces, /#24292f/);
+  assert.doesNotMatch(surfaces, /#c8674f|#b25742|terracotta/i);
+  assert.match(read("PRODUCT.md"), /Readnote visual language/);
 });
 
 test("settings explains and links the local knowledge companion", () => {
@@ -60,6 +76,7 @@ test("settings explains and links the local knowledge companion", () => {
   assert.match(html, /http:\/\/127\.0\.0\.1:8791\/setup/);
   assert.match(html, /npm run companion/);
   assert.match(script, /127\.0\.0\.1:8791\/health/);
+  assert.doesNotMatch(html, /coding agent|customizationPrompt/i);
 });
 
 test("runtime has no source-file credentials or retired model", () => {

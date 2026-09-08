@@ -9,6 +9,7 @@ test("maps a timestamped video note to the shared knowledge excerpt model", () =
     text: "A durable idea.",
     videoTitle: "The Long Interview",
     channelName: "Example Channel",
+    personalNote: "Connect this to durable learning.",
     timestamp: "12:34",
     timestampedUrl: "https://youtube.com/watch?v=abc123&t=754s",
     createdAt: Date.parse("2026-09-08T01:00:00.000Z"),
@@ -20,7 +21,7 @@ test("maps a timestamped video note to the shared knowledge excerpt model", () =
     sourceTitle: "The Long Interview",
     sourceUrl: "https://youtube.com/watch?v=abc123&t=754s",
     text: "A durable idea.",
-    note: "Channel: Example Channel · 12:34",
+    note: "Connect this to durable learning.",
     translation: "",
     createdAt: "2026-09-08T01:00:00.000Z",
   });

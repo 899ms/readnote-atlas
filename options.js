@@ -375,12 +375,14 @@ const YTD_OPTIONS = (() => {
     }
 
     function applyLanguage(language) {
-      const nextDraft = switchPromptDraft(
-        promptDrafts,
-        currentLanguage,
-        language,
-        customizationPrompt.value,
-      );
+      const nextDraft = customizationPrompt
+        ? switchPromptDraft(
+            promptDrafts,
+            currentLanguage,
+            language,
+            customizationPrompt.value,
+          )
+        : { language: normalizeLanguage(language), prompt: "" };
       currentLanguage = nextDraft.language;
       doc.documentElement.lang = currentLanguage;
       doc.title = translate(currentLanguage, "pageTitle");
@@ -404,10 +406,7 @@ const YTD_OPTIONS = (() => {
         );
       }
 
-      updateLocalizedPrompt(
-        customizationPrompt,
-        nextDraft.prompt,
-      );
+      if (customizationPrompt) updateLocalizedPrompt(customizationPrompt, nextDraft.prompt);
       updateLanguageButtonState(languageButtons, currentLanguage);
       for (const element of statusStates.keys()) renderStatus(element);
     }
@@ -526,10 +525,7 @@ const YTD_OPTIONS = (() => {
     }
 
     form.addEventListener("submit", saveSettings);
-    copyCustomizationPromptBtn.addEventListener(
-      "click",
-      copyCustomizationPrompt,
-    );
+    copyCustomizationPromptBtn?.addEventListener("click", copyCustomizationPrompt);
     doc
       .getElementById("clearCacheBtn")
       .addEventListener("click", clearCachedDigests);

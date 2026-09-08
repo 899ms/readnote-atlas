@@ -32,8 +32,6 @@ import {
 
 const TOOLBAR_WIDTH = 312;
 const TOOLBAR_HEIGHT = 34;
-const COMPANION_URL = "http://127.0.0.1:8791";
-
 let currentSource: SourceRecord | null = null;
 let toolbar: HTMLDivElement | null = null;
 let noteEditor: HTMLDivElement | null = null;
@@ -618,17 +616,21 @@ type ExcerptSyncStatus = "synced" | "obsidian_only" | "saved";
 
 async function syncExcerpt(excerpt: ExcerptRecord): Promise<ExcerptSyncStatus> {
   try {
-    const response = await fetch(`${COMPANION_URL}/sync-excerpt`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ excerpt })
-    });
-    if (!response.ok) {
+    const data = (await chrome.runtime.sendMessage({
+      action: "syncArticleExcerpt",
+      excerpt
+    })) as {
+      success?: boolean;
+      obsidian?: string;
+      notion?: string;
+    };
+    if (!data.success) {
       return "saved";
     }
-
-    const data = (await response.json()) as { notion?: string };
-    return data.notion === "synced" ? "synced" : "obsidian_only";
+    if (data.notion === "synced") {
+      return "synced";
+    }
+    return data.obsidian === "synced" ? "obsidian_only" : "saved";
   } catch {
     return "saved";
   }
@@ -744,23 +746,19 @@ function collectTranslationBlocks(sourceId: string): Array<TranslationBlock & { 
 
 async function requestTranslations(paragraphs: string[]): Promise<string[] | null> {
   try {
-    const response = await fetch(`${COMPANION_URL}/translate`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    const data = (await chrome.runtime.sendMessage({
+      action: "translateArticle",
+      payload: {
         source: {
           title: document.title,
           url: canonicalizeUrl(location.href)
         },
         paragraphs
-      })
-    });
-
-    if (!response.ok) {
+      }
+    })) as { success?: boolean; translations?: string[] };
+    if (!data.success) {
       return null;
     }
-
-    const data = (await response.json()) as { translations?: string[] };
     return data.translations?.length === paragraphs.length ? data.translations : null;
   } catch {
     return null;

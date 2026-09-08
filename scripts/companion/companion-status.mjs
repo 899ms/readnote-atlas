@@ -35,12 +35,12 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
     <style>
       :root {
         color-scheme: light;
-        --ink: #1d1d1f;
-        --muted: #6e6e73;
-        --line: rgba(29, 29, 31, 0.12);
-        --panel: rgba(255, 255, 255, 0.82);
-        --blue: #0a84ff;
-        --green: #30d158;
+        --ink: #24292f;
+        --muted: #57606a;
+        --line: #d0d7de;
+        --panel: #ffffff;
+        --blue: #0969da;
+        --green: #2da44e;
       }
 
       * {
@@ -52,9 +52,7 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
         min-height: 100vh;
         display: grid;
         place-items: center;
-        background:
-          radial-gradient(circle at 50% 0%, rgba(10, 132, 255, 0.08), transparent 34rem),
-          #f5f5f7;
+        background: #f6f8fa;
         color: var(--ink);
         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
       }
@@ -62,9 +60,9 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
       main {
         width: min(520px, calc(100vw - 40px));
         border: 1px solid var(--line);
-        border-radius: 18px;
+        border-radius: 10px;
         background: var(--panel);
-        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 3px 12px rgba(31, 35, 40, 0.08);
         padding: 28px;
         backdrop-filter: blur(24px);
       }
@@ -91,8 +89,8 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
         gap: 7px;
         flex: 0 0 auto;
         border-radius: 999px;
-        background: rgba(48, 209, 88, 0.12);
-        color: #137333;
+        background: #dafbe1;
+        color: #1a7f37;
         padding: 6px 10px;
         font-size: 13px;
         font-weight: 650;
@@ -103,7 +101,7 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
         height: 8px;
         border-radius: 50%;
         background: var(--green);
-        box-shadow: 0 0 0 4px rgba(48, 209, 88, 0.16);
+        box-shadow: 0 0 0 4px rgba(45, 164, 78, 0.14);
       }
 
       dl {
@@ -148,7 +146,7 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
       @media (max-width: 520px) {
         main {
           padding: 22px;
-          border-radius: 16px;
+          border-radius: 8px;
         }
 
         header {
@@ -216,12 +214,12 @@ export function renderSetupPage({ settings, saved = false }) {
     <style>
       :root {
         color-scheme: light;
-        --ink: #1d1d1f;
-        --muted: #6e6e73;
-        --line: rgba(29, 29, 31, 0.14);
-        --blue: #0a84ff;
-        --green: #30d158;
-        --bg: #f5f5f7;
+        --ink: #24292f;
+        --muted: #57606a;
+        --line: #d0d7de;
+        --blue: #0969da;
+        --green: #2da44e;
+        --bg: #f6f8fa;
       }
       * { box-sizing: border-box; }
       body {
@@ -285,7 +283,7 @@ export function renderSetupPage({ settings, saved = false }) {
       .notice {
         border-left: 3px solid var(--green);
         padding: 8px 0 8px 12px;
-        color: #137333;
+        color: #1a7f37;
       }
       .actions {
         display: flex;

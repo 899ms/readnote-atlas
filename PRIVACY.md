@@ -19,6 +19,7 @@ The optional companion listens only on `127.0.0.1:8791`. It can:
 - append those excerpts to the Notion page explicitly configured by the user.
 
 The companion does not scan an Obsidian vault or discover Notion pages. Notion credentials, notebook paths, and companion translation credentials remain in `.env.local`, which is excluded from Git.
+Browser requests are accepted only from the companion's own loopback pages or Chrome extension origins. Its extension-facing health response reports configuration booleans only, never notebook paths, page IDs, profile names, provider names, or model names.
 
 ## External services
 

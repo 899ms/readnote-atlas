@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;
-  --bg: #f7f3ec;
+  --bg: #f6f8fa;
   --surface: #ffffff;
-  --border: #e7dfd2;
-  --text: #2e2a24;
-  --muted: #6b6258;
-  --accent: #c8674f;
-  --accent-hover: #ad523e;
-  --danger: #9f2d2d;
+  --border: #d0d7de;
+  --text: #24292f;
+  --muted: #57606a;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --danger: #cf222e;
 }
 
 * {
@@ -67,11 +67,11 @@ header {
 .language-switch .language-option[aria-pressed="true"] {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 4px rgba(46, 42, 36, 0.14);
+  box-shadow: 0 1px 3px rgba(31, 35, 40, 0.12);
 }
 
 .language-switch .language-option:focus-visible {
-  outline: 3px solid rgba(200, 103, 79, 0.28);
+  outline: 3px solid rgba(9, 105, 218, 0.22);
   outline-offset: 1px;
 }
 
@@ -104,9 +104,9 @@ h1 {
   margin: 18px 0;
   padding: 24px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 10px 30px rgba(46, 42, 36, 0.05);
+  box-shadow: 0 1px 3px rgba(31, 35, 40, 0.06);
 }
 
 .knowledge-card-heading,
@@ -132,8 +132,8 @@ h1 {
 }
 
 .knowledge-status.is-ready {
-  background: rgba(124, 139, 111, 0.14);
-  color: #58674e;
+  background: rgba(45, 164, 78, 0.12);
+  color: #1a7f37;
 }
 
 .knowledge-actions {
@@ -198,7 +198,7 @@ textarea {
 input:focus,
 textarea:focus {
   border-color: var(--accent);
-  outline: 3px solid rgba(200, 103, 79, 0.14);
+  outline: 3px solid rgba(9, 105, 218, 0.12);
 }
 
 textarea {
@@ -222,8 +222,8 @@ a {
   margin-top: 18px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #f8eee9;
-  color: #60483f;
+  background: #fff8c5;
+  color: #57606a;
   font-size: 13px;
 }
 
@@ -239,9 +239,9 @@ a {
   justify-content: space-between;
   margin-bottom: 18px;
   padding: 13px 14px;
-  border: 1px solid #ecd8ce;
+  border: 1px solid #d0d7de;
   border-radius: 12px;
-  background: #fdf6f2;
+  background: #f6f8fa;
 }
 
 .provider-name {
@@ -252,16 +252,16 @@ a {
 .agent-badge {
   padding: 4px 9px;
   border-radius: 999px;
-  background: #f2e3dc;
-  color: #714b3f;
+  background: rgba(9, 105, 218, 0.1);
+  color: #0550ae;
   font-size: 11px;
   font-weight: 800;
 }
 
 .customization-card {
   padding: 0;
-  border-color: #ddc2b7;
-  background: linear-gradient(145deg, #fff 0%, #fff9f6 100%);
+  border-color: #d0d7de;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -296,11 +296,11 @@ a {
 }
 
 .customization-summary:hover {
-  background: #fdf3ee;
+  background: #f6f8fa;
 }
 
 .customization-summary:focus-visible {
-  outline: 3px solid rgba(200, 103, 79, 0.28);
+  outline: 3px solid rgba(9, 105, 218, 0.22);
   outline-offset: -3px;
 }
 
@@ -323,7 +323,7 @@ a {
 
 .customization-content {
   padding: 19px 22px 22px;
-  border-top: 1px solid #ead8d0;
+  border-top: 1px solid #d0d7de;
 }
 
 .customization-intro {
@@ -348,10 +348,10 @@ a {
 .prompt-reminder {
   margin: 8px 0 10px;
   padding: 10px 12px;
-  border: 1px solid #e7b9a8;
+  border: 1px solid #d0d7de;
   border-radius: 10px;
-  background: #fff2ec;
-  color: #60483f;
+  background: #fff8c5;
+  color: #57606a;
   font-size: 13px;
   font-weight: 750;
 }

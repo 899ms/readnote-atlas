@@ -27,6 +27,7 @@ Include the affected commit or version, minimal reproduction steps, expected and
 - Keep `.env.local` out of Git and screenshots.
 - Use dedicated keys with spending limits where providers support them.
 - Review packaged files before loading an update.
+- Keep the companion bound to loopback; its origin checks are part of the security boundary.
 - Remember that Chrome local storage and `.env.local` are not encrypted credential vaults.
 
 The release tooling uses an explicit allowlist and scans public files for common credential patterns, but automated checks cannot detect every secret.

@@ -78,7 +78,7 @@ Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录�
 ## 当前边界
 
 - 暂不支持 Shorts、直播、私密视频以及没有原生字幕的视频；
-- 播放器字幕会在侧边栏完成 transcript 获取和缓存后开始工作；
+- 播放器字幕会自动获取并缓存原生字幕，无需先打开侧边栏；
 - 视频能力当前使用 Supadata 和 DeepSeek；文章翻译可通过 companion 使用 DeepSeek、OpenAI 或 MiniMax；
 - 第一版仅支持 Chrome。
 
