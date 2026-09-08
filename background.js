@@ -32,6 +32,25 @@ const OVERLAY_SEGMENT_LIMITS = Object.freeze({
 const COMPANION_URL = "http://127.0.0.1:8791";
 const overlayTranscriptRequests = new Map();
 
+function isMissingContentReceiver(error) {
+  return /Receiving end does not exist|Could not establish connection/i.test(
+    String(error?.message || error || ""),
+  );
+}
+
+async function sendMessageToYouTubeContent(tabId, payload) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, payload);
+  } catch (error) {
+    if (!isMissingContentReceiver(error)) throw error;
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["transcript.js", "content.js"],
+    });
+    return chrome.tabs.sendMessage(tabId, payload);
+  }
+}
+
 async function getSettings() {
   const stored = await chrome.storage.local.get(YTD_SETTINGS.STORAGE_KEY);
   return YTD_SETTINGS.normalize(stored[YTD_SETTINGS.STORAGE_KEY]);
@@ -592,7 +611,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             "URL:",
             tabs[0].url,
           );
-          let response = await chrome.tabs.sendMessage(
+          let response = await sendMessageToYouTubeContent(
             tabs[0].id,
             message.payload,
           );
@@ -1010,7 +1029,7 @@ function validateOverview(analysis) {
  */
 async function handleGetVideoInfo(tabId) {
   try {
-    const response = await chrome.tabs.sendMessage(tabId, {
+    const response = await sendMessageToYouTubeContent(tabId, {
       action: "getVideoInfo",
     });
     return response;
@@ -1663,8 +1682,8 @@ async function getTranslationBaseRules(targetLanguage) {
 
 function validateTranscriptBatchRequest(content) {
   const segments = content?.segments;
-  if (!Array.isArray(segments) || segments.length < 1 || segments.length > 4) {
-    throw new Error("Transcript translation requires 1 to 4 segments");
+  if (!Array.isArray(segments) || segments.length < 1 || segments.length > 6) {
+    throw new Error("Transcript translation requires 1 to 6 segments");
   }
 
   const seenIds = new Set();
@@ -1863,4 +1882,5 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   handleTranslateContent,
   closePanelForTab,
   updatePanelForTab,
+  sendMessageToYouTubeContent,
 };

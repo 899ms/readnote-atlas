@@ -51,7 +51,12 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /data-controls-toggle/);
   assert.match(content, /rn-subtitle-settings/);
   assert.match(content, /ReadnoteTranscript\.wrapSubtitle/);
-  assert.match(content, /if \(readnoteSubtitleMode !== "bilingual"\) return/);
+  assert.match(content, /if \(readnoteSubtitleMode !== "bilingual"/);
+  assert.match(content, /pointerdown/);
+  assert.match(content, /pointermove/);
+  assert.match(content, /--rn-subtitle-x/);
+  assert.match(content, /--rn-subtitle-scale/);
+  assert.match(content, /data-resize-handle/);
 });
 
 test("article page actions collapse behind one quiet launcher", () => {

@@ -85,6 +85,8 @@ function loadBackgroundHelpers({
     setPanelBehavior() {},
     setOptions: () => Promise.resolve(),
   },
+  tabs = { onUpdated: { addListener() {} }, onActivated: { addListener() {} } },
+  scripting = { executeScript: () => Promise.resolve() },
 } = {}) {
   const listeners = { addListener() {} };
   const localStorage = { ytd_settings: settings };
@@ -126,7 +128,8 @@ function loadBackgroundHelpers({
         getURL: (resourcePath) => `chrome-extension://test/${resourcePath}`,
         sendMessage: () => Promise.resolve({ success: true }),
       },
-      tabs: { onUpdated: listeners, onActivated: listeners },
+      tabs,
+      scripting,
     },
     YTD_SETTINGS: {
       STORAGE_KEY: "ytd_settings",
@@ -140,6 +143,42 @@ function loadBackgroundHelpers({
   vm.runInNewContext(read("background.js"), sandbox);
   return sandbox.__YTD_TRANSLATION_TESTING__;
 }
+
+test("a stale YouTube tab reinjects the content scripts and retries once", async () => {
+  const calls = [];
+  let attempts = 0;
+  const tabs = {
+    onUpdated: { addListener() {} },
+    onActivated: { addListener() {} },
+    async sendMessage(tabId, payload) {
+      calls.push(["send", tabId, payload.action]);
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("Could not establish connection. Receiving end does not exist.");
+      }
+      return { title: "Recovered" };
+    },
+  };
+  const background = loadBackgroundHelpers({
+    tabs,
+    scripting: {
+      async executeScript(options) {
+        calls.push(["inject", options.target.tabId, options.files]);
+      },
+    },
+  });
+
+  const result = await background.sendMessageToYouTubeContent(17, {
+    action: "getVideoInfo",
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
+    ["send", 17, "getVideoInfo"],
+    ["inject", 17, ["transcript.js", "content.js"]],
+    ["send", 17, "getVideoInfo"],
+  ]);
+  assert.equal(result.title, "Recovered");
+});
 
 test("non-YouTube tabs explicitly close before their panel is disabled", async () => {
   const calls = [];
@@ -459,7 +498,16 @@ test("background rejects unsupported language fallthrough and malformed batches"
   assert.match(source, /\["transcriptBatch", "interfaceBatch"\]/);
   assert.throws(
     () => validateTranscriptBatchRequest({ segments: [] }),
-    /1 to 4 segments/,
+    /1 to 6 segments/,
+  );
+  assert.equal(
+    validateTranscriptBatchRequest({
+      segments: Array.from({ length: 6 }, (_, index) => ({
+        id: `segment-${index}`,
+        text: `Caption ${index}`,
+      })),
+    }).length,
+    6,
   );
   assert.throws(
     () =>
