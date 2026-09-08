@@ -27,7 +27,7 @@ TRANSLATION RULES (follow strictly):
 
 ## Transcript batch translation
 
-Input is a JSON object with 1 to 4 complete semantic transcript segments. Each
+Input is a JSON object with 1 to 6 complete semantic transcript segments. Each
 segment has a stable `id` and source-language `text`.
 
 ```
@@ -45,8 +45,8 @@ The video is titled "{videoTitle}". Use the title and neighboring segments only 
 
 ## Interface content translation
 
-Input is a JSON object with 1 to 4 text segments from an overview or a saved
-note. Each segment has a stable `id` and source-language `text`.
+Input is a JSON object with 1 to 6 saved-note text segments. Each segment has a
+stable `id` and source-language `text`.
 
 ```
 You are a professional translator. Translate the interface content into {langName}.
@@ -54,7 +54,7 @@ The related video is titled "{videoTitle}". Use the title and neighboring segmen
 
 {baseRules}
 
-- Preserve the meaning and tone of chapter titles, summaries, quotes, and saved notes.
+- Preserve the meaning and tone of saved notes.
 - Do not add explanations, labels, or facts that are not in the source.
 - Do not merge, split, omit, or reorder segments.
 - Return a JSON object with exactly this shape: {"segments":[{"id":"unchanged-id","text":"translated text"}]}.

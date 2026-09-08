@@ -237,30 +237,30 @@ const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
 test("the header exposes one universal language control for all result tabs", () => {
   const html = read("sidepanel.html");
   const js = read("sidepanel.js");
-  assert.match(html, /id="transcriptModeControl"[\s\S]*aria-label="Content language"/);
+  assert.match(html, /id="transcriptModeControl"[\s\S]*aria-label="Bilingual translation"/);
   assert.match(html, /id="transcriptModeControl"[\s\S]*id="tabsNav"/);
-  assert.match(html, /data-transcript-mode="original"[\s\S]*?>Original</);
-  assert.match(html, /data-transcript-mode="zh"[\s\S]*?>\u4e2d\u6587</);
-  assert.match(html, /data-transcript-mode="bilingual"[\s\S]*?>\u53cc\u8bed</);
+  assert.match(html, /data-transcript-mode="bilingual"[\s\S]*?>On</);
+  assert.match(html, /data-transcript-mode="off"[\s\S]*?>Off</);
+  assert.doesNotMatch(html, /data-transcript-mode="(?:original|zh)"/);
   assert.match(js, /handleDisplayLanguageModeChange\(button\.dataset\.transcriptMode\)/);
   assert.match(js, /contentType: "transcriptBatch"/);
   assert.match(js, /contentType: "interfaceBatch"/);
-  assert.match(js, /translateOverviewContent/);
+  assert.doesNotMatch(js, /translateOverviewContent/);
   assert.match(js, /translateNotesContent/);
   assert.doesNotMatch(js, /English \+ Chinese/);
   assert.doesNotMatch(`${html}\n${js}`, /From video subtitles/);
 });
 
-test("new videos default to Original while returning videos restore their choice", async () => {
+test("new videos default to bilingual On while returning videos restore their choice", async () => {
   const { loadDisplayLanguageMode, saveDisplayLanguageMode } =
     loadSidepanelHelpers();
 
-  await saveDisplayLanguageMode("video-a", "bilingual");
-  assert.equal(await loadDisplayLanguageMode("video-a"), "bilingual");
-  assert.equal(await loadDisplayLanguageMode("unseen-video"), "original");
+  await saveDisplayLanguageMode("video-a", "off");
+  assert.equal(await loadDisplayLanguageMode("video-a"), "off");
+  assert.equal(await loadDisplayLanguageMode("unseen-video"), "bilingual");
 });
 
-test("Overview shares the Transcript batch generation and retries when opened", () => {
+test("only visible source surfaces translate in six-item batches", () => {
   const js = read("sidepanel.js");
   const transcriptFunction = js.match(
     /async function translateTranscript\(\)[\s\S]*?\n}\n\nfunction setTranslatingSpinner/,
@@ -268,22 +268,22 @@ test("Overview shares the Transcript batch generation and retries when opened", 
 
   assert.ok(transcriptFunction);
   assert.doesNotMatch(transcriptFunction, /translationGeneration \+= 1/);
-  assert.match(js, /const TRANSLATION_BATCH_SIZE = 3/);
+  assert.match(js, /const TRANSLATION_BATCH_SIZE = 6/);
   assert.match(
     js,
     /const batch = missing\.slice\(start, start \+ TRANSLATION_BATCH_SIZE\)[\s\S]*?rerender\(\);[\s\S]*?await updateCache\(\)/,
   );
   assert.match(
     js,
-    /tabName === "overview"[\s\S]*?currentAnalysis[\s\S]*?currentTranscriptMode !== "original"[\s\S]*?translateOverviewContent\(\)/,
+    /tabName === "overview"[\s\S]*?triggerAnalysis\(\)/,
   );
   assert.match(
     js,
-    /Translate only the visible tab[\s\S]*?tabName === "notes"[\s\S]*?translateNotesContent\(\)/,
+    /Translate only the visible transcript or notes surface[\s\S]*?tabName === "notes"[\s\S]*?translateNotesContent\(\)/,
   );
   assert.match(
     js,
-    /activeTabName === "overview"[\s\S]*?translateOverviewContent\(\)[\s\S]*?activeTabName === "notes"[\s\S]*?translateNotesContent\(\)[\s\S]*?activeTabName === "transcript"[\s\S]*?translateTranscript\(\)/,
+    /activeTabName === "notes"[\s\S]*?translateNotesContent\(\)[\s\S]*?activeTabName === "transcript"[\s\S]*?translateTranscript\(\)/,
   );
 });
 
@@ -407,23 +407,15 @@ test("structured translation batches align by stable ID and expose missing fallb
   assert.equal(aligned[1].text, "\u7b2c\u4e8c\u4e2a\u5b8c\u6574\u53e5\u5b50\u3002");
 });
 
-test("translated-only omits English while bilingual renders aligned English and Chinese", () => {
+test("bilingual transcript renders aligned English and Chinese", () => {
   const { renderTranscriptSegmentContent } = loadSidepanelHelpers();
   const segment = { id: "segment-0-0", text: "Original English sentence." };
-  const translatedOnly = renderTranscriptSegmentContent(
-    segment,
-    "zh",
-    "\u4e2d\u6587\u8bd1\u6587\u3002",
-    "",
-  );
   const bilingual = renderTranscriptSegmentContent(
     segment,
     "bilingual",
     "\u4e2d\u6587\u8bd1\u6587\u3002",
     "",
   );
-  assert.doesNotMatch(translatedOnly, /Original English sentence/);
-  assert.match(translatedOnly, /\u4e2d\u6587\u8bd1\u6587/);
   assert.match(bilingual, /transcript-original/);
   assert.match(bilingual, /Original English sentence/);
   assert.match(bilingual, /\u4e2d\u6587\u8bd1\u6587/);
@@ -681,7 +673,7 @@ test("DeepSeek retries one empty transcript JSON response without response_forma
   assert.equal(requests[0].max_tokens, 1536);
 });
 
-test("interface batches use the dedicated Overview and Notes translation prompt", async () => {
+test("interface batches use the dedicated saved Notes translation prompt", async () => {
   const requests = [];
   const helpers = loadBackgroundHelpers({
     fetchImpl: async (url, options) => {
@@ -713,7 +705,7 @@ test("interface batches use the dedicated Overview and Notes translation prompt"
   assert.equal(result.translatedContent.segments[0].text, "\u4e2d\u6587\u7b14\u8bb0\u3002");
   assert.match(
     requests[0].messages[0].content,
-    /chapter titles, summaries, quotes, and saved notes/,
+    /Preserve the meaning and tone of saved notes/,
   );
 });
 

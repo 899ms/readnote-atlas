@@ -30,11 +30,10 @@ let youtubeTabId = null; // Store the YouTube tab ID for reliable messaging
 let errorAction = null;
 
 // --- Translation state ---
-// The universal language control supports original content, Chinese, and an
-// aligned bilingual view across Transcript, Overview, and Notes.
-let currentTranscriptMode = "original";
+// On means an aligned bilingual view everywhere; Off means source text only.
+let currentTranscriptMode = "bilingual";
 const DISPLAY_LANGUAGE_MODE_KEY = "ytd_display_language_modes_by_video";
-const DISPLAY_LANGUAGE_MODES = new Set(["original", "zh", "bilingual"]);
+const DISPLAY_LANGUAGE_MODES = new Set(["off", "bilingual"]);
 let translationGeneration = 0; // Invalidates responses from older UI modes/videos.
 let translationWorkCount = 0;
 let transcriptScrollObserver = null;
@@ -46,7 +45,7 @@ let interfaceTranslationFailures = new Set();
 let currentNotes = [];
 let currentNotesFilterVideoId = null;
 const TRANSLATION_MESSAGE_TIMEOUT_MS = 130_000;
-const TRANSLATION_BATCH_SIZE = 3;
+const TRANSLATION_BATCH_SIZE = 6;
 
 // --- Transcript search state ---
 // Matches point to visible marks in the active transcript language mode.
@@ -253,7 +252,7 @@ function groupTranscriptEntries(entries, limits = TRANSCRIPT_SEGMENT_LIMITS) {
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", async () => {
-  setTranscriptModeButtons("original");
+  setTranscriptModeButtons("bilingual");
   setupEventListeners();
   await evictOldCacheEntries(20);
 
@@ -580,8 +579,7 @@ async function startDigest(videoId, videoUrl) {
     resetTranscriptSearch();
     lastTranscriptScrollTop = 0;
     pendingTranscriptViewState = await loadTranscriptViewState(videoId);
-    // An unseen video always starts in Original, so opening it never spends
-    // translation tokens. A saved choice is restored only for this video.
+    // Every video starts bilingual unless the user explicitly turns it off.
     currentTranscriptMode = await loadDisplayLanguageMode(videoId);
     document
       .getElementById("contentArea")
@@ -597,7 +595,7 @@ async function startDigest(videoId, videoUrl) {
     debugLog("Loading from cache:", videoId);
     currentVideoId = videoId;
     currentVideoUrl = videoUrl;
-    currentAnalysis = cached.analysis || null;
+    currentAnalysis = normalizeCachedAnalysis(cached.analysis);
     currentTranscript = cached.transcript;
     currentTranscriptText = cached.transcriptText;
     currentTranscriptTimestamped = cached.transcriptTimestamped;
@@ -629,7 +627,6 @@ async function startDigest(videoId, videoUrl) {
     // Render analysis if we have it cached
     if (currentAnalysis) {
       renderAnalysisResults(currentAnalysis);
-      highlightMomentsOnPage(currentAnalysis.keyMoments);
     }
 
     showState("results");
@@ -641,7 +638,7 @@ async function startDigest(videoId, videoUrl) {
 
     // Setup explain feature
     setupExplainFeature();
-    if (currentTranscriptMode !== "original") translateTranscript();
+    if (currentTranscriptMode !== "off") translateTranscript();
     return;
   }
 
@@ -700,7 +697,7 @@ async function startDigest(videoId, videoUrl) {
 
   // Setup explain feature for text selection
   setupExplainFeature();
-  if (currentTranscriptMode !== "original") translateTranscript();
+  if (currentTranscriptMode !== "off") translateTranscript();
 
   // Save transcript to cache (without analysis)
   await saveToCache(videoId);
@@ -728,23 +725,19 @@ function renderLocalizedContent(text, surface, id) {
   if (!original) return "";
   const cacheKey = interfaceTranslationCacheKey(surface, id, original);
   const translated = getInterfaceTranslation(surface, id, original);
-  if (currentTranscriptMode === "original") return escapeHtml(original);
+  if (currentTranscriptMode === "off") return escapeHtml(original);
 
   const translation = translated
     ? escapeHtml(translated)
     : interfaceTranslationFailures.has(cacheKey)
       ? '<span class="translation-error">Translation unavailable.</span>'
       : '<span class="translation-pending">Translating...</span>';
-  if (currentTranscriptMode === "bilingual") {
-    return `<span class="localized-copy"><span class="localized-original">${escapeHtml(original)}</span><span class="localized-translation">${translation}</span></span>`;
-  }
-  return `<span class="localized-copy"><span class="localized-translation">${translation}</span></span>`;
+  return `<span class="localized-copy"><span class="localized-original">${escapeHtml(original)}</span><span class="localized-translation">${translation}</span></span>`;
 }
 
 function getLocalizedPlainText(text, surface, id) {
   const original = String(text || "");
   const translated = getInterfaceTranslation(surface, id, original);
-  if (currentTranscriptMode === "zh") return translated || original;
   if (currentTranscriptMode === "bilingual" && translated) {
     return `${original}\n\n${translated}`;
   }
@@ -752,7 +745,7 @@ function getLocalizedPlainText(text, surface, id) {
 }
 
 async function translateInterfaceSegments(surface, segments, rerender) {
-  if (currentTranscriptMode === "original" || !segments.length) return;
+  if (currentTranscriptMode === "off" || !segments.length) return;
   const generation = translationGeneration;
   const videoId = currentVideoId;
   const missing = segments
@@ -800,7 +793,7 @@ async function translateInterfaceSegments(surface, segments, rerender) {
       if (
         generation !== translationGeneration ||
         videoId !== currentVideoId ||
-        currentTranscriptMode === "original"
+        currentTranscriptMode === "off"
       ) {
         return;
       }
@@ -831,38 +824,6 @@ async function translateInterfaceSegments(surface, segments, rerender) {
   }
 }
 
-function getOverviewTranslationSegments() {
-  if (!currentAnalysis) return [];
-  const segments = [];
-  (currentAnalysis.chapters || []).forEach((chapter, index) => {
-    if (chapter.title) {
-      segments.push({ id: `chapter-${index}-title`, text: chapter.title });
-    }
-    if (chapter.summary) {
-      segments.push({ id: `chapter-${index}-summary`, text: chapter.summary });
-    }
-  });
-  [...(currentAnalysis.keyQuotes || [])]
-    .sort((a, b) => (a.timestampSeconds || 0) - (b.timestampSeconds || 0))
-    .forEach((quote, index) => {
-      if (quote.quote) segments.push({ id: `quote-${index}`, text: quote.quote });
-    });
-  return segments;
-}
-
-function translateOverviewContent() {
-  return translateInterfaceSegments(
-    "overview",
-    getOverviewTranslationSegments(),
-    () => {
-      const contentArea = document.getElementById("contentArea");
-      const scrollTop = contentArea?.scrollTop || 0;
-      renderAnalysisResults(currentAnalysis);
-      if (contentArea) contentArea.scrollTop = scrollTop;
-    },
-  );
-}
-
 function getNoteTranslationId(note, index) {
   const stablePart = String(note.id || note.createdAt || index)
     .replace(/[^A-Za-z0-9_-]/g, "-")
@@ -883,141 +844,22 @@ function translateNotesContent() {
   });
 }
 
-/**
- * Renders the analysis results into the Overview tab.
- * Shows chapters and key quotes only.
- */
-function renderAnalysisResults(analysis) {
-  // Chapters
-  const chapterList = document.getElementById("chapterList");
-  chapterList.innerHTML = "";
-  (analysis.chapters || []).forEach((chapter, index) => {
-    const li = document.createElement("li");
-    li.className = "chapter-item";
-    li.dataset.seconds = chapter.timestampSeconds;
-    li.innerHTML = `
-      <span class="chapter-timestamp">${escapeHtml(chapter.timestamp)}</span>
-      <div class="chapter-content">
-        <span class="chapter-title">${renderLocalizedContent(chapter.title, "overview", `chapter-${index}-title`)}</span>
-        <span class="chapter-summary">${renderLocalizedContent(chapter.summary || "", "overview", `chapter-${index}-summary`)}</span>
-      </div>
-    `;
-    li.addEventListener("click", () => {
-      debugLog(
-        "[Readnote Studio Panel] Chapter clicked:",
-        chapter.timestamp,
-        chapter.timestampSeconds,
-      );
-      seekTo(chapter.timestampSeconds);
-    });
-    chapterList.appendChild(li);
-  });
-
-  // Quotes - sort by timestamp (chronological order)
-  const quotesList = document.getElementById("quotesList");
-  quotesList.innerHTML = "";
-  const sortedQuotes = [...(analysis.keyQuotes || [])].sort(
-    (a, b) => (a.timestampSeconds || 0) - (b.timestampSeconds || 0),
-  );
-  sortedQuotes.forEach((quote, index) => {
-    const div = document.createElement("div");
-    div.className = "quote-item";
-    div.dataset.seconds = quote.timestampSeconds;
-    div.innerHTML = `
-      <div class="quote-text">${renderLocalizedContent(quote.quote, "overview", `quote-${index}`)}</div>
-      <div class="quote-meta">
-        <span class="quote-timestamp">${escapeHtml(quote.timestamp)}</span>
-        <div class="quote-actions">
-          <button class="quote-save-note-btn" title="Save this quote as a note">Note</button>
-          <button class="quote-copy-btn" title="Copy this quote">Copy</button>
-        </div>
-      </div>
-    `;
-    div.addEventListener("click", () => {
-      debugLog(
-        "[Readnote Studio Panel] Quote clicked:",
-        quote.timestamp,
-        quote.timestampSeconds,
-      );
-      seekTo(quote.timestampSeconds);
-    });
-
-    const quoteCopyBtn = div.querySelector(".quote-copy-btn");
-    quoteCopyBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        await navigator.clipboard.writeText(
-          getLocalizedPlainText(quote.quote, "overview", `quote-${index}`),
-        );
-        quoteCopyBtn.textContent = "Copied";
-        setTimeout(() => {
-          quoteCopyBtn.textContent = "Copy";
-        }, 1500);
-      } catch (err) {
-        console.error("Copy failed:", err);
-      }
-    });
-
-    const quoteSaveNoteBtn = div.querySelector(".quote-save-note-btn");
-    quoteSaveNoteBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      await saveQuoteAsNote(quote, quoteSaveNoteBtn);
-    });
-
-    quotesList.appendChild(div);
-  });
-
-  if (
-    currentTranscriptMode !== "original" &&
-    resultTabIsActive("overview")
-  ) {
-    void translateOverviewContent();
-  }
+function normalizeCachedAnalysis(analysis) {
+  const overviewZh =
+    typeof analysis?.overviewZh === "string" ? analysis.overviewZh.trim() : "";
+  return overviewZh ? { overviewZh } : null;
 }
 
-/**
- * Saves a key quote as a timestamped note.
- */
-async function saveQuoteAsNote(quote, btn) {
-  if (!currentVideoId) return;
-
-  const originalText = btn.textContent;
-  btn.textContent = "Saving...";
-  btn.disabled = true;
-
-  try {
-    const result = await chrome.runtime.sendMessage({
-      action: "saveNote",
-      videoId: currentVideoId,
-      timestamp: quote.timestampSeconds,
-      videoTitle: currentVideoTitle,
-      channelName: currentChannelName,
-    });
-
-    if (result.success) {
-      btn.textContent = "Saved";
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }, 1500);
-      // Refresh notes list if on Notes tab
-      loadNotes(currentVideoId);
-    } else {
-      console.error("[Readnote Studio] Save quote as note failed:", result.error);
-      btn.textContent = "Error";
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }, 1500);
-    }
-  } catch (error) {
-    console.error("[Readnote Studio] Save quote as note error:", error);
-    btn.textContent = "Error";
-    setTimeout(() => {
-      btn.textContent = originalText;
-      btn.disabled = false;
-    }, 1500);
-  }
+function renderAnalysisResults(analysis) {
+  const overview = document.getElementById("overviewContent");
+  if (!overview) return;
+  const text = String(analysis?.overviewZh || "").trim();
+  overview.innerHTML = text
+    ? text
+        .split(/\n{2,}/)
+        .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+        .join("")
+    : '<p class="overview-placeholder">暂时无法生成内容综述。</p>';
 }
 
 /**
@@ -1344,13 +1186,12 @@ function setupTranscriptSearch() {
 }
 
 function getDisplayedTranscriptText() {
-  if (currentTranscriptMode === "original") return currentTranscriptText || "";
+  if (currentTranscriptMode === "off") return currentTranscriptText || "";
   return getActiveTranscriptSegments()
     .map((segment) => {
       const translated = transcriptParagraphCache.get(
         transcriptTranslationCacheKey(segment),
       );
-      if (currentTranscriptMode === "zh") return translated || segment.text;
       return translated ? `${segment.text}\n${translated}` : segment.text;
     })
     .join("\n\n");
@@ -1488,22 +1329,20 @@ function switchTab(tabName) {
     });
   }
 
-  // Translate only the visible tab. This prevents hidden surfaces from using
-  // tokens or competing with the batch queue the user is waiting for.
+  // Translate only the visible transcript or notes surface. Overview is
+  // generated directly in Chinese and needs no second translation pass.
   if (tabName === "overview") {
     if (!currentAnalysis && !isAnalysisLoading) {
       triggerAnalysis();
-    } else if (currentAnalysis && currentTranscriptMode !== "original") {
-      void translateOverviewContent();
     }
   } else if (
     tabName === "notes" &&
-    currentTranscriptMode !== "original"
+    currentTranscriptMode !== "off"
   ) {
     void translateNotesContent();
   } else if (
     tabName === "transcript" &&
-    currentTranscriptMode !== "original" &&
+    currentTranscriptMode !== "off" &&
     !transcriptScrollObserver
   ) {
     void translateTranscript();
@@ -1511,7 +1350,7 @@ function switchTab(tabName) {
 }
 
 /**
- * Triggers the LLM analysis (lazy-loaded when user clicks Overview or Quotes tab).
+ * Triggers the LLM analysis only when the user opens Overview.
  * This saves tokens by not running analysis until needed.
  */
 async function triggerAnalysis() {
@@ -1520,16 +1359,8 @@ async function triggerAnalysis() {
 
   isAnalysisLoading = true;
 
-  // Show loading indicators in the Overview tab
-  const chapterList = document.getElementById("chapterList");
-  const quotesList = document.getElementById("quotesList");
-
-  if (chapterList)
-    chapterList.innerHTML =
-      '<li class="chapter-item" style="color: var(--text-muted); border: none;">Loading chapters...</li>';
-  if (quotesList)
-    quotesList.innerHTML =
-      '<div class="quote-item" style="color: var(--text-muted); border-left-color: var(--border);">Loading quotes...</div>';
+  const overview = document.getElementById("overviewContent");
+  if (overview) overview.innerHTML = '<p class="overview-placeholder">正在生成完整中文综述…</p>';
 
   try {
     const analysisResult = await chrome.runtime.sendMessage({
@@ -1542,22 +1373,21 @@ async function triggerAnalysis() {
     });
 
     if (!analysisResult.success) {
-      if (chapterList)
-        chapterList.innerHTML = `<li class="chapter-item" style="color: var(--accent); border: none;">Analysis failed: ${escapeHtml(analysisResult.error || "Unknown error")}</li>`;
+      if (overview)
+        overview.innerHTML = `<p class="overview-error">生成失败：${escapeHtml(analysisResult.error || "Unknown error")}</p>`;
       isAnalysisLoading = false;
       return;
     }
 
     currentAnalysis = analysisResult.analysis;
     renderAnalysisResults(currentAnalysis);
-    highlightMomentsOnPage(currentAnalysis.keyMoments);
 
     // Save to cache now that we have analysis
     await saveToCache(currentVideoId);
   } catch (error) {
     console.error("[Readnote Studio Panel] Analysis error:", error);
-    if (chapterList)
-      chapterList.innerHTML = `<li class="chapter-item" style="color: var(--accent); border: none;">Error: ${escapeHtml(error.message)}</li>`;
+    if (overview)
+      overview.innerHTML = `<p class="overview-error">错误：${escapeHtml(error.message)}</p>`;
   }
 
   isAnalysisLoading = false;
@@ -1618,24 +1448,6 @@ function playNote(note) {
   } else {
     // note.timestampedUrl already includes the &t=<seconds>s anchor
     chrome.tabs.create({ url: note.timestampedUrl });
-  }
-}
-
-async function highlightMomentsOnPage(moments) {
-  if (!moments || !moments.length) return;
-
-  try {
-    // Route through background script for reliable message passing
-    await chrome.runtime.sendMessage({
-      action: "relayToContent",
-      payload: {
-        action: "highlightMoments",
-        moments: moments,
-        videoDuration: currentVideoDuration,
-      },
-    });
-  } catch (error) {
-    console.error("Highlight error:", error);
   }
 }
 
@@ -2283,7 +2095,7 @@ function renderNotes(notes, filteredVideoId) {
     notesList.appendChild(noteEl);
   });
 
-  if (currentTranscriptMode !== "original" && resultTabIsActive("notes")) {
+  if (currentTranscriptMode !== "off" && resultTabIsActive("notes")) {
     void translateNotesContent();
   }
 }
@@ -2597,22 +2409,22 @@ function restorePendingTranscriptViewState(videoId) {
 }
 
 // ============================================================
-// UNIVERSAL DISPLAY LANGUAGE — Original / Chinese / aligned bilingual
+// UNIVERSAL DISPLAY LANGUAGE — bilingual On / Off
 // ============================================================
 
 async function loadDisplayLanguageMode(videoId) {
   if (!videoId) {
-    setTranscriptModeButtons("original");
-    return "original";
+    setTranscriptModeButtons("bilingual");
+    return "bilingual";
   }
   try {
     const stored = await chrome.storage.local.get(DISPLAY_LANGUAGE_MODE_KEY);
     const mode = stored?.[DISPLAY_LANGUAGE_MODE_KEY]?.[videoId]?.mode;
     currentTranscriptMode = DISPLAY_LANGUAGE_MODES.has(mode)
       ? mode
-      : "original";
+      : "bilingual";
   } catch (error) {
-    currentTranscriptMode = "original";
+    currentTranscriptMode = "bilingual";
   }
   setTranscriptModeButtons(currentTranscriptMode);
   return currentTranscriptMode;
@@ -2655,7 +2467,7 @@ async function handleDisplayLanguageModeChange(mode) {
 
   currentTranscriptMode = mode;
   await saveDisplayLanguageMode(currentVideoId, mode);
-  if (mode !== "original") interfaceTranslationFailures.clear();
+  if (mode !== "off") interfaceTranslationFailures.clear();
   translationGeneration += 1;
   translationWorkCount = 0;
   setTranslatingSpinner(false);
@@ -2665,7 +2477,7 @@ async function handleDisplayLanguageModeChange(mode) {
   const activeTabName =
     document.querySelector(".tab.active")?.dataset.tab || "transcript";
 
-  if (mode === "original") {
+  if (mode === "off") {
     renderTranscript();
     if (currentAnalysis) renderAnalysisResults(currentAnalysis);
     if (currentNotes.length) renderNotes(currentNotes, currentNotesFilterVideoId);
@@ -2678,9 +2490,7 @@ async function handleDisplayLanguageModeChange(mode) {
   if (currentNotes.length) {
     renderNotes(currentNotes, currentNotesFilterVideoId);
   }
-  if (activeTabName === "overview" && currentAnalysis) {
-    await translateOverviewContent();
-  } else if (activeTabName === "notes" && currentNotes.length) {
+  if (activeTabName === "notes" && currentNotes.length) {
     await translateNotesContent();
   } else if (activeTabName === "transcript") {
     await translateTranscript();
@@ -2877,7 +2687,7 @@ function retryTranslationSegment(index, generation) {
  */
 async function translateTranscript() {
   const segments = getActiveTranscriptSegments();
-  if (!segments.length || currentTranscriptMode === "original") return;
+  if (!segments.length || currentTranscriptMode === "off") return;
 
   const generation = translationGeneration;
   const videoId = currentVideoId;
@@ -2936,7 +2746,7 @@ async function translateTranscript() {
     },
     {
       root: document.getElementById("contentArea"),
-      rootMargin: "320px 0px",
+      rootMargin: "800px 0px",
       threshold: 0,
     },
   );

@@ -910,11 +910,22 @@
 		if (document.querySelector(".rk-page-actions")) return;
 		const actions = document.createElement("div");
 		actions.className = "rk-page-actions";
+		const toggle = document.createElement("button");
+		toggle.type = "button";
+		toggle.className = "rk-page-actions-toggle";
+		toggle.textContent = "译";
+		toggle.title = "Readnote translation tools";
+		toggle.setAttribute("aria-label", "Open Readnote translation tools");
+		toggle.setAttribute("aria-expanded", "false");
+		const menu = document.createElement("div");
+		menu.className = "rk-page-actions-menu";
 		const translate = document.createElement("button");
 		translate.type = "button";
 		translate.className = "rk-translate-button";
 		translate.textContent = "Translate";
 		translate.addEventListener("click", () => {
+			actions.classList.remove("is-open");
+			toggle.setAttribute("aria-expanded", "false");
 			runExtensionTask(translatePage);
 		});
 		const clearAll = document.createElement("button");
@@ -922,10 +933,23 @@
 		clearAll.className = "rk-clear-all-button";
 		clearAll.textContent = "Clear all";
 		clearAll.addEventListener("click", () => {
+			actions.classList.remove("is-open");
+			toggle.setAttribute("aria-expanded", "false");
 			runExtensionTask(clearAllAnnotationsForCurrentPage);
 		});
-		actions.append(translate, clearAll);
+		toggle.addEventListener("click", () => {
+			const open = actions.classList.toggle("is-open");
+			toggle.setAttribute("aria-expanded", String(open));
+		});
+		menu.append(translate, clearAll);
+		actions.append(toggle, menu);
 		document.body.append(actions);
+		document.addEventListener("pointerdown", (event) => {
+			if (!actions.contains(event.target)) {
+				actions.classList.remove("is-open");
+				toggle.setAttribute("aria-expanded", "false");
+			}
+		});
 	}
 	async function bootstrap() {
 		if (!document.body || location.protocol.startsWith("chrome") || location.hostname === "youtube.com" || location.hostname.endsWith(".youtube.com")) return;

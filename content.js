@@ -6,8 +6,8 @@
  *
  * It handles:
  * 1. Extracting video info (title, channel name) from the page
- * 2. Injecting "key moment" markers onto YouTube's progress bar
- * 3. Adding a "Digest" button to YouTube's action bar (next to Share/Save)
+ * 2. Showing a bilingual subtitle layer over the player
+ * 3. Adding a Readnote button to YouTube's action bar
  *
  * Think of it like a robot sitting inside the YouTube tab,
  * reading the page and making small visual changes.
@@ -39,6 +39,9 @@ let readnoteSubtitleRefreshTimer = null;
 let readnoteSubtitleRetryTimer = null;
 let readnoteSubtitleActiveId = "";
 const readnoteSubtitleTranslationRequests = new Set();
+const SUBTITLE_PREFETCH_COUNT = 6;
+const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style";
+let readnoteSubtitleStyle = { font: "sans", size: "medium", position: "low" };
 
 // ============================================================
 // INITIALIZATION
@@ -129,7 +132,6 @@ if (document.readyState === "loading") {
 /**
  * Listen for messages from the side panel or background script.
  * When they ask for video info, we read it from the page.
- * When they send key moments, we highlight them on the progress bar.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   debugLog("[Readnote Studio Content] Received message:", message.action, message);
@@ -140,12 +142,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     debugLog("[Readnote Studio Content] Returning video info:", info);
     sendResponse(info);
     return false; // Synchronous response
-  }
-
-  if (message.action === "highlightMoments") {
-    // Key moment markers disabled — chapters are shown in the side panel only.
-    sendResponse({ success: true });
-    return false;
   }
 
   if (message.action === "getCurrentTime") {
@@ -434,6 +430,7 @@ function setupReadnoteSubtitles() {
       readnoteSubtitleRetryTimer = null;
     }
     injectReadnoteSubtitleOverlay(player);
+    void loadReadnoteSubtitleStyle();
     readnoteSubtitleVideo = video;
     readnoteSubtitleTimeListener = () => renderReadnoteSubtitle();
     video.addEventListener("timeupdate", readnoteSubtitleTimeListener);
@@ -454,15 +451,24 @@ function injectReadnoteSubtitleOverlay(player) {
   style.id = "readnote-subtitle-style";
   style.textContent = `
     #readnote-subtitle-root { position:absolute; inset:0; z-index:48; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:50%; bottom:11%; width:min(88%,1100px); transform:translateX(-50%); display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease; }
-    #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:50%; bottom:11%; width:min(88%,1100px); transform:translateX(-50%); display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease,bottom .16s ease; }
+    #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-align:center; white-space:pre-line; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; }
     #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
     #readnote-subtitle-root .rn-subtitle-zh { color:#fff7dc; font-weight:550; }
     #readnote-subtitle-root .rn-subtitle-zh.is-pending { color:rgba(255,247,220,.68); font-size:clamp(14px,1.3vw,18px); }
     #readnote-subtitle-root .rn-subtitle-controls { position:absolute; top:14px; left:14px; display:flex; padding:3px; gap:2px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(15,15,16,.74); opacity:0; pointer-events:auto; backdrop-filter:blur(14px); transition:opacity .18s ease; }
     #movie_player:hover #readnote-subtitle-root .rn-subtitle-controls, #readnote-subtitle-root .rn-subtitle-controls:focus-within { opacity:1; }
+    #readnote-subtitle-root .rn-subtitle-settings { display:flex; gap:2px; align-items:center; }
+    #readnote-subtitle-root .rn-subtitle-controls:not(.is-expanded) .rn-subtitle-settings { display:none; }
+    #readnote-subtitle-root .rn-subtitle-controls-toggle { min-width:34px; padding:0 8px; color:white; }
     #readnote-subtitle-root .rn-subtitle-mode { min-width:45px; height:28px; padding:0 10px; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.72); font:600 11px/1 Inter,system-ui,sans-serif; cursor:pointer; }
     #readnote-subtitle-root .rn-subtitle-mode[aria-pressed="true"] { background:#0969da; color:white; }
+    #readnote-subtitle-root .rn-subtitle-divider { width:1px; height:18px; align-self:center; background:rgba(255,255,255,.18); }
+    #readnote-subtitle-root[data-font="serif"] .rn-subtitle-line { font-family:Georgia,"Noto Serif SC",serif; }
+    #readnote-subtitle-root[data-size="small"] .rn-subtitle-line { font-size:clamp(15px,1.65vw,24px); }
+    #readnote-subtitle-root[data-size="large"] .rn-subtitle-line { font-size:clamp(21px,2.5vw,35px); }
+    #readnote-subtitle-root[data-position="middle"] .rn-subtitle-copy { bottom:17%; }
+    #readnote-subtitle-root[data-position="high"] .rn-subtitle-copy { bottom:24%; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-copy { opacity:0; }
     #readnote-subtitle-root[data-mode="off"] .rn-subtitle-controls { opacity:1; }
   `;
@@ -477,33 +483,108 @@ function injectReadnoteSubtitleOverlay(player) {
       <div class="rn-subtitle-line rn-subtitle-zh"></div>
     </div>
     <div class="rn-subtitle-controls" role="group" aria-label="Readnote subtitle display">
-      <button class="rn-subtitle-mode" type="button" data-mode="bilingual">中英</button>
-      <button class="rn-subtitle-mode" type="button" data-mode="original">EN</button>
-      <button class="rn-subtitle-mode" type="button" data-mode="off">关闭</button>
+      <button class="rn-subtitle-mode rn-subtitle-controls-toggle" type="button" data-controls-toggle aria-expanded="false" title="Subtitle settings">Aa</button>
+      <div class="rn-subtitle-settings">
+        <button class="rn-subtitle-mode" type="button" data-mode="bilingual">On</button>
+        <button class="rn-subtitle-mode" type="button" data-mode="off">Off</button>
+        <span class="rn-subtitle-divider" aria-hidden="true"></span>
+        <button class="rn-subtitle-mode" type="button" data-style-action="font" title="Switch subtitle font">Font</button>
+        <button class="rn-subtitle-mode" type="button" data-style-action="smaller" title="Smaller subtitles">A−</button>
+        <button class="rn-subtitle-mode" type="button" data-style-action="larger" title="Larger subtitles">A+</button>
+        <button class="rn-subtitle-mode" type="button" data-style-action="lower" title="Move subtitles down">↓</button>
+        <button class="rn-subtitle-mode" type="button" data-style-action="higher" title="Move subtitles up">↑</button>
+      </div>
     </div>
   `;
-  root.querySelectorAll(".rn-subtitle-mode").forEach((button) => {
+  root.querySelector("[data-controls-toggle]").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const controls = root.querySelector(".rn-subtitle-controls");
+    setReadnoteSubtitleControlsExpanded(!controls.classList.contains("is-expanded"));
+  });
+  root.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       const mode = button.dataset.mode;
       const videoId = currentReadnoteVideoId();
-      if (!videoId || !["bilingual", "original", "off"].includes(mode)) return;
+      if (!videoId || !["bilingual", "off"].includes(mode)) return;
       readnoteSubtitleMode = mode;
       updateReadnoteSubtitleControls();
       renderReadnoteSubtitle();
       await chrome.runtime.sendMessage({ action: "setOverlayMode", videoId, mode });
+      setReadnoteSubtitleControlsExpanded(false);
+    });
+  });
+  root.querySelectorAll("[data-style-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      updateReadnoteSubtitleStyle(button.dataset.styleAction);
+      setReadnoteSubtitleControlsExpanded(false);
     });
   });
   player.appendChild(root);
   readnoteSubtitleRoot = root;
   updateReadnoteSubtitleControls();
+  applyReadnoteSubtitleStyle();
+}
+
+function setReadnoteSubtitleControlsExpanded(expanded) {
+  if (!readnoteSubtitleRoot) return;
+  const controls = readnoteSubtitleRoot.querySelector(".rn-subtitle-controls");
+  const toggle = readnoteSubtitleRoot.querySelector("[data-controls-toggle]");
+  controls?.classList.toggle("is-expanded", expanded);
+  toggle?.setAttribute("aria-expanded", String(expanded));
+}
+
+function normalizeReadnoteSubtitleStyle(value) {
+  return {
+    font: value?.font === "serif" ? "serif" : "sans",
+    size: ["small", "medium", "large"].includes(value?.size) ? value.size : "medium",
+    position: ["low", "middle", "high"].includes(value?.position) ? value.position : "low",
+  };
+}
+
+async function loadReadnoteSubtitleStyle() {
+  try {
+    const stored = await chrome.storage.local.get(SUBTITLE_STYLE_STORAGE_KEY);
+    readnoteSubtitleStyle = normalizeReadnoteSubtitleStyle(stored[SUBTITLE_STYLE_STORAGE_KEY]);
+    applyReadnoteSubtitleStyle();
+  } catch (_error) {
+    applyReadnoteSubtitleStyle();
+  }
+}
+
+function applyReadnoteSubtitleStyle() {
+  if (!readnoteSubtitleRoot) return;
+  readnoteSubtitleRoot.dataset.font = readnoteSubtitleStyle.font;
+  readnoteSubtitleRoot.dataset.size = readnoteSubtitleStyle.size;
+  readnoteSubtitleRoot.dataset.position = readnoteSubtitleStyle.position;
+}
+
+function updateReadnoteSubtitleStyle(action) {
+  const sizes = ["small", "medium", "large"];
+  const positions = ["low", "middle", "high"];
+  if (action === "font") {
+    readnoteSubtitleStyle.font = readnoteSubtitleStyle.font === "sans" ? "serif" : "sans";
+  } else if (action === "smaller") {
+    readnoteSubtitleStyle.size = sizes[Math.max(0, sizes.indexOf(readnoteSubtitleStyle.size) - 1)];
+  } else if (action === "larger") {
+    readnoteSubtitleStyle.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(readnoteSubtitleStyle.size) + 1)];
+  } else if (action === "lower") {
+    readnoteSubtitleStyle.position = positions[Math.max(0, positions.indexOf(readnoteSubtitleStyle.position) - 1)];
+  } else if (action === "higher") {
+    readnoteSubtitleStyle.position = positions[Math.min(positions.length - 1, positions.indexOf(readnoteSubtitleStyle.position) + 1)];
+  }
+  applyReadnoteSubtitleStyle();
+  void chrome.storage.local.set({ [SUBTITLE_STYLE_STORAGE_KEY]: readnoteSubtitleStyle });
 }
 
 function updateReadnoteSubtitleControls() {
   if (!readnoteSubtitleRoot) return;
   readnoteSubtitleRoot.dataset.mode = readnoteSubtitleMode;
-  readnoteSubtitleRoot.querySelectorAll(".rn-subtitle-mode").forEach((button) => {
+  readnoteSubtitleRoot.querySelectorAll("[data-mode]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.mode === readnoteSubtitleMode));
   });
 }
@@ -516,6 +597,12 @@ async function refreshReadnoteSubtitleState() {
     if (result?.mode) readnoteSubtitleMode = result.mode;
     if (result?.success && Array.isArray(result.segments)) {
       readnoteSubtitleSegments = result.segments;
+      const current = ReadnoteTranscript.activeSegment(
+        readnoteSubtitleSegments,
+        readnoteSubtitleVideo?.currentTime || 0,
+      );
+      const currentIndex = Math.max(0, readnoteSubtitleSegments.findIndex((item) => item.id === current?.id));
+      void requestReadnoteSubtitleTranslations(currentIndex);
     }
     updateReadnoteSubtitleControls();
     renderReadnoteSubtitle();
@@ -530,25 +617,42 @@ async function refreshReadnoteSubtitleState() {
   }
 }
 
-async function requestReadnoteSubtitleTranslation(segment) {
+async function requestReadnoteSubtitleTranslations(startIndex) {
   const videoId = currentReadnoteVideoId();
-  if (!videoId || !segment?.id || readnoteSubtitleTranslationRequests.has(segment.id)) return;
-  readnoteSubtitleTranslationRequests.add(segment.id);
+  if (!videoId) return;
+  const candidates = readnoteSubtitleSegments
+    .slice(Math.max(0, startIndex), Math.max(0, startIndex) + SUBTITLE_PREFETCH_COUNT)
+    .filter((segment) =>
+      segment?.id && !segment.translation && !readnoteSubtitleTranslationRequests.has(segment.id),
+    );
+  if (!candidates.length) return;
+  candidates.forEach((segment) => readnoteSubtitleTranslationRequests.add(segment.id));
   try {
     const result = await chrome.runtime.sendMessage({
-      action: "translateOverlaySegment",
+      action: "translateOverlayBatch",
       videoId,
-      segmentId: segment.id,
+      segmentIds: candidates.map((segment) => segment.id),
     });
-    if (result?.success && result.translation) {
-      segment.translation = result.translation;
-      if (readnoteSubtitleActiveId === segment.id) renderReadnoteSubtitle();
+    if (result?.success && Array.isArray(result.translations)) {
+      const translated = new Map(
+        result.translations.map((item) => [item.segmentId, item.translation]),
+      );
+      candidates.forEach((segment) => {
+        if (translated.get(segment.id)) segment.translation = translated.get(segment.id);
+      });
+      const missing = candidates.filter((segment) => !segment.translation);
+      if (missing.length) {
+        setTimeout(
+          () => missing.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id)),
+          10_000,
+        );
+      }
+      renderReadnoteSubtitle();
     } else {
-      setTimeout(() => readnoteSubtitleTranslationRequests.delete(segment.id), 10_000);
+      setTimeout(() => candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id)), 10_000);
     }
   } catch (_error) {
-    // Keep the original subtitle visible. A later playback pass can retry.
-    readnoteSubtitleTranslationRequests.delete(segment.id);
+    candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id));
   }
 }
 
@@ -575,13 +679,14 @@ function renderReadnoteSubtitle() {
   }
 
   readnoteSubtitleActiveId = segment.id;
-  original.textContent = segment.text;
-  chinese.hidden = readnoteSubtitleMode !== "bilingual";
-  if (readnoteSubtitleMode === "bilingual") {
-    chinese.textContent = segment.translation || "正在生成中文…";
-    chinese.classList.toggle("is-pending", !segment.translation);
-    if (!segment.translation) void requestReadnoteSubtitleTranslation(segment);
-  }
+  original.textContent = ReadnoteTranscript.wrapSubtitle(segment.text);
+  chinese.hidden = false;
+  chinese.textContent = ReadnoteTranscript.wrapSubtitle(
+    segment.translation || "正在生成中文…",
+  );
+  chinese.classList.toggle("is-pending", !segment.translation);
+  const activeIndex = readnoteSubtitleSegments.findIndex((item) => item.id === segment.id);
+  void requestReadnoteSubtitleTranslations(Math.max(0, activeIndex));
 }
 
 function cleanupReadnoteSubtitles() {
@@ -948,28 +1053,6 @@ function extractVideoInfo() {
     duration: videoElement?.duration || 0,
     description: descriptionElement?.textContent?.trim() || "",
   };
-}
-
-// ============================================================
-// PROGRESS BAR KEY MOMENTS
-// ============================================================
-
-/**
- * Adds colored marker dots to YouTube's video progress bar
- * at the positions of key moments identified by the AI provider.
- *
- * How it works:
- * - YouTube's progress bar is a <div> element with a known class
- * - We calculate each moment's position as a percentage of total duration
- * - We inject small colored <div> elements at those positions
- * - The markers are absolutely positioned on top of the progress bar
- *
- * This is a "bonus feature" — it gives you a visual preview
- * of where the good stuff is in the video.
- */
-function highlightKeyMoments(moments, videoDuration) {
-  // Disabled: no timeline markers. Chapters live only in the side panel.
-  return;
 }
 
 // ============================================================

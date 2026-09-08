@@ -34,3 +34,17 @@ test("uses the same stable translation key in the panel and player", () => {
     "video123:zh:semantic:segment-2-9000",
   );
 });
+
+test("long player subtitles split once near a natural midpoint", () => {
+  const english = transcript.wrapSubtitle(
+    "Most great products begin as a very specific personal need, and become useful when that need turns into a repeatable system.",
+  );
+  const chinese = transcript.wrapSubtitle(
+    "很多优秀产品都源于一个非常具体的个人需求，而当这种需求变成可以反复使用的系统时，产品才真正有价值。",
+  );
+
+  assert.equal(english.split("\n").length, 2);
+  assert.match(english, /need,\nand/);
+  assert.equal(chinese.split("\n").length, 2);
+  assert.match(chinese, /，\n/);
+});

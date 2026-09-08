@@ -27,7 +27,7 @@ The loop is identical for text and video. A video timestamp plays the same role 
   - Video: bilingual player subtitles and a low-friction Note action.
 - **Side panel**
   - Transcript: complete, searchable, bilingual, playback-aware.
-  - Overview: full-video chapters and key quotes.
+  - Overview: one comprehensive Chinese account of the full discussion.
   - Notes: current-video or all-video notebook with knowledge sync state.
 - **Settings**
   - Video providers: Supadata and DeepSeek.
@@ -37,6 +37,7 @@ The loop is identical for text and video. A video timestamp plays the same role 
 ## v0.1 success criteria
 
 - A user can watch a captioned English YouTube video with in-player Chinese support.
+- Bilingual translation has one predictable On / Off state, and player subtitle typography and position are adjustable without permanently covering the video.
 - A user can inspect and search the complete transcript without losing playback position.
 - A user can select a transcript passage and save a timestamped note.
 - The saved note remains available locally if every external service is offline.

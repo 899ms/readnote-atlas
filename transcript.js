@@ -128,11 +128,47 @@ var ReadnoteTranscript = (() => {
     return match;
   }
 
+  /**
+   * Keeps an overlay caption to two balanced lines. The split prefers natural
+   * punctuation or a word boundary near the middle and never changes the text
+   * stored in the transcript or translation cache.
+   */
+  function wrapSubtitle(text) {
+    const clean = normalizeText(text);
+    const hasCjk = /[\u3400-\u9fff]/.test(clean);
+    const singleLineLimit = hasCjk ? 28 : 64;
+    if (clean.length <= singleLineLimit) return clean;
+
+    const midpoint = clean.length / 2;
+    const lower = clean.length * 0.28;
+    const upper = clean.length * 0.72;
+    const candidates = [];
+    const boundary = /[,.;:!?，。；：！？]\s*|\s+/g;
+    let match;
+    while ((match = boundary.exec(clean))) {
+      const index = match.index + match[0].length;
+      if (index >= lower && index <= upper) candidates.push(index);
+    }
+    const cut = candidates.length
+      ? candidates.reduce((best, index) =>
+          Math.abs(index - midpoint) < Math.abs(best - midpoint) ? index : best,
+        )
+      : Math.round(midpoint);
+    return `${clean.slice(0, cut).trim()}\n${clean.slice(cut).trim()}`;
+  }
+
   function translationKey(videoId, segment) {
     return `${String(videoId || "")}:zh:semantic:${String(segment?.id || "")}`;
   }
 
-  return { LIMITS, normalizeText, groupEntries, activeSegment, translationKey };
+  return {
+    LIMITS,
+    normalizeText,
+    groupEntries,
+    activeSegment,
+    wrapSubtitle,
+    translationKey,
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) {

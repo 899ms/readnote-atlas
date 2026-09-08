@@ -31,27 +31,21 @@
             class="transcript-mode-control global-language-control"
             id="transcriptModeControl"
             role="group"
-            aria-label="Content language"
+            aria-label="Bilingual translation"
             style="display: none"
           >
             <button
               class="transcript-mode-btn active"
               type="button"
-              data-transcript-mode="original"
-              aria-pressed="true"
-            >Original</button>
-            <button
-              class="transcript-mode-btn"
-              type="button"
-              data-transcript-mode="zh"
-              aria-pressed="false"
-            >中文</button>
-            <button
-              class="transcript-mode-btn"
-              type="button"
               data-transcript-mode="bilingual"
+              aria-pressed="true"
+            >On</button>
+            <button
+              class="transcript-mode-btn"
+              type="button"
+              data-transcript-mode="off"
               aria-pressed="false"
-            >双语</button>
+            >Off</button>
             <span
               class="translation-spinner"
               id="langSpinner"
@@ -182,41 +176,12 @@
           </div>
         </div>
 
-        <!-- TAB: Overview (chapters + key quotes) - requires LLM -->
+        <!-- TAB: one comprehensive Chinese overview - requires LLM -->
         <div class="tab-panel" data-panel="overview">
-          <!-- Chapters -->
           <div class="section">
-            <div class="section-title">Chapters</div>
-            <ul class="chapter-list" id="chapterList">
-              <li
-                class="chapter-item"
-                style="
-                  color: var(--text-muted);
-                  cursor: default;
-                  border-color: var(--border);
-                "
-              >
-                Chapters will appear here
-              </li>
-            </ul>
-          </div>
-
-          <!-- Key Quotes -->
-          <div class="section">
-            <div class="section-title">Key Quotes</div>
-            <div id="quotesList">
-              <div
-                class="quote-item"
-                style="
-                  color: var(--text-muted);
-                  border-left-color: var(--border);
-                  cursor: default;
-                "
-              >
-                <div class="quote-text" style="font-style: normal">
-                  Quotes will be extracted when you view this tab...
-                </div>
-              </div>
+            <div class="section-title">中文内容综述</div>
+            <div class="overview-content" id="overviewContent">
+              打开此标签后生成完整中文综述。
             </div>
           </div>
         </div>

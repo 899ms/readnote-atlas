@@ -19,7 +19,7 @@
     .table { position:absolute; left:18%; right:18%; bottom:26%; height:9%; border-radius:50%; background:#181817; transform:perspective(500px) rotateX(58deg); }
     .brand { position:absolute; top:20px; right:22px; color:rgba(255,255,255,.88); font-weight:750; letter-spacing:.03em; }
     .mode { position:absolute; top:16px; left:16px; display:flex; gap:2px; padding:3px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(10,10,10,.66); backdrop-filter:blur(12px); }
-    .mode span { padding:5px 10px; border-radius:999px; color:#cfcfcf; font-size:11px; font-weight:700; } .mode .on { background:var(--accent); color:white; }
+    .mode span { padding:5px 10px; border-radius:999px; color:#cfcfcf; font-size:11px; font-weight:700; } .mode .on { background:var(--accent); color:white; } .mode .divider { width:1px; padding:0; margin:4px 2px; background:rgba(255,255,255,.18); }
     .note { position:absolute; top:17px; right:116px; padding:8px 14px; border-radius:999px; background:var(--accent); color:white; font-size:12px; font-weight:700; }
     .captions { position:absolute; left:7%; right:7%; bottom:12%; display:grid; gap:5px; justify-items:center; text-align:center; }
     .captions div { width:max-content; max-width:100%; padding:3px 12px; border-radius:7px; background:rgba(5,5,6,.76); color:white; font-size:clamp(17px,1.8vw,26px); line-height:1.35; text-shadow:0 2px 4px black; }
@@ -56,7 +56,7 @@
       <section class="watch">
         <div class="player">
           <div class="scene"></div><div class="table"></div><div class="brand">READNOTE STUDIO</div>
-          <div class="mode"><span class="on">中英</span><span>EN</span><span>关闭</span></div><div class="note">＋ Note</div>
+          <div class="mode" title="展开字幕设置"><span class="on">Aa</span></div><div class="note">＋ Note</div>
           <div class="captions"><div>Most great products begin as a very specific personal need.</div><div class="zh">很多优秀产品，都源于一个非常具体的个人需求。</div></div>
           <div class="controls"><div class="progress"></div></div>
         </div>
@@ -65,7 +65,7 @@
       <aside class="panel">
         <header class="panel-head">
           <div class="title-row"><div><div class="video-title">How personal tools become enduring products</div><div class="channel">Field Notes</div></div><div class="settings">Settings</div></div>
-          <div class="language"><span>Original</span><span>中文</span><span class="on">双语</span></div>
+          <div class="language"><span class="on">On · 中英双语</span><span>Off</span></div>
           <div class="tabs"><div class="tab on">Transcript</div><div class="tab">Overview</div><div class="tab">Notes</div></div>
         </header>
         <div class="panel-body">

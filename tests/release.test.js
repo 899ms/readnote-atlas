@@ -48,8 +48,9 @@ test("video UI includes full transcript, knowledge sync, and player subtitle con
   assert.match(panel, /data-tab="notes"/);
   assert.match(panelScript, /knowledge-sync-badge/);
   assert.match(panelScript, /action: "syncNote"/);
-  assert.match(contentScript, /data-mode="bilingual">中英/);
-  assert.match(contentScript, /action: "translateOverlaySegment"/);
+  assert.match(contentScript, /data-mode="bilingual">On/);
+  assert.match(contentScript, /data-mode="off">Off/);
+  assert.match(contentScript, /action: "translateOverlayBatch"/);
   assert.match(contentScript, /ReadnoteTranscript\.activeSegment/);
   assert.match(contentScript, /result\?\.success \? 60_000 : 10_000/);
   assert.match(panelScript, /personalNote/);

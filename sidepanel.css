@@ -535,66 +535,6 @@ body {
   visibility: hidden;
 }
 
-/* ============================================================
-   CHAPTERS
-   ============================================================ */
-.chapter-list {
-  list-style: none;
-}
-
-.chapter-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 13px 15px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  margin-bottom: 9px;
-  transition: all 0.18s ease;
-  background: var(--surface);
-  cursor: pointer;
-}
-
-.chapter-item:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-
-.chapter-timestamp {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--accent);
-  min-width: 46px;
-  padding: 3px 8px;
-  background: var(--accent-dim);
-  border-radius: var(--r-sm);
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.chapter-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.chapter-title {
-  font-family: var(--font-reading);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.chapter-summary {
-  font-family: var(--font-reading);
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
 .localized-copy {
   display: flex;
   flex-direction: column;
@@ -613,84 +553,6 @@ body {
 
 .localized-translation .translation-pending {
   color: var(--text-muted);
-}
-
-/* ============================================================
-   KEY QUOTES
-   ============================================================ */
-.quote-item {
-  border-left: 4px solid var(--accent);
-  border-radius: var(--r-md);
-  padding: 16px 18px;
-  margin-bottom: 14px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.quote-item:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.quote-text {
-  font-family: var(--font-reading);
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--text);
-  margin-bottom: 10px;
-}
-
-.quote-text::before {
-  content: "\201C";
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 34px;
-  color: var(--accent);
-  line-height: 0;
-  vertical-align: -10px;
-  margin-right: 4px;
-}
-
-.quote-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.quote-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* One-click copy and save-note buttons on each quote */
-.quote-copy-btn,
-.quote-save-note-btn {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 11px;
-  padding: 4px 11px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.quote-copy-btn:hover,
-.quote-save-note-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-
-.quote-save-note-btn:disabled {
-  opacity: 0.7;
-  cursor: default;
 }
 
 /* ============================================================
@@ -1375,6 +1237,33 @@ body {
 /* ============================================================
    NOTES TAB
    ============================================================ */
+
+.overview-content {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.overview-content p {
+  margin: 0 0 14px;
+}
+
+.overview-content p:last-child {
+  margin-bottom: 0;
+}
+
+.overview-placeholder {
+  color: var(--text-muted);
+}
+
+.overview-error {
+  color: #cf222e;
+}
 
 /* Segmented filter control (This Video / All Notes) */
 .notes-filter {

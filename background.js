@@ -24,7 +24,7 @@ const debugLog = (...args) => {
 };
 
 const OVERLAY_MODE_STORAGE_KEY = "readnote_overlay_modes_by_video";
-const OVERLAY_MODES = new Set(["bilingual", "original", "off"]);
+const OVERLAY_MODES = new Set(["bilingual", "off"]);
 const OVERLAY_SEGMENT_LIMITS = Object.freeze({
   minChars: 28,
   idealChars: 72,
@@ -458,8 +458,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.action === "translateOverlaySegment") {
-    handleTranslateOverlaySegment(message.videoId, message.segmentId)
+  if (message.action === "translateOverlayBatch") {
+    handleTranslateOverlayBatch(message.videoId, message.segmentIds)
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -907,8 +907,7 @@ function parseLooseJson(text) {
 /**
  * Sends the transcript to DeepSeek for analysis.
  *
- * The prompt asks the model to produce chapters covering the whole video
- * and 3-5 key quotes with timestamps.
+ * The prompt asks for one comprehensive Chinese account of the full discussion.
  *
  * @param {string} transcriptText - The full transcript as plain text
  * @param {string} videoTitle - The video title
@@ -932,40 +931,7 @@ async function handleAnalyzeTranscript(
       };
     }
 
-    // Convert duration to MM:SS format for context
-    // The transcript text is already prefixed with [M:SS] markers. Its LAST
-    // marker is the most reliable signal of where the content actually ends —
-    // more trustworthy than the duration metadata, which is sometimes missing
-    // or wrong. We use the larger of (metadata duration, last transcript stamp).
-    let lastTranscriptSeconds = 0;
-    const stampMatches = transcriptText.match(/\[(\d+):(\d{2})\]/g) || [];
-    if (stampMatches.length) {
-      const last =
-        stampMatches[stampMatches.length - 1].match(/\[(\d+):(\d{2})\]/);
-      lastTranscriptSeconds = parseInt(last[1]) * 60 + parseInt(last[2]);
-    }
-
-    const effectiveSeconds = Math.max(
-      Math.floor(videoDuration || 0),
-      lastTranscriptSeconds,
-    );
-    const durationMinutes = Math.floor(effectiveSeconds / 60);
-    const durationSeconds = Math.floor(effectiveSeconds % 60);
-    const durationFormatted = `${durationMinutes}:${String(durationSeconds).padStart(2, "0")}`;
-    const maxTimestampSeconds = effectiveSeconds;
-
-    // The "last chapter must be after" threshold (75% in) forces the model to
-    // cover the WHOLE video instead of front-loading chapters near the start.
-    // We do NOT prescribe a chapter count — the model picks the natural splits.
-    const lateThresholdSeconds = Math.floor(effectiveSeconds * 0.75);
-    const lateThreshold = `${Math.floor(lateThresholdSeconds / 60)}:${String(
-      lateThresholdSeconds % 60,
-    ).padStart(2, "0")}`;
-
     const promptVariables = {
-      durationFormatted,
-      lateThreshold,
-      maxTimestampSeconds,
       videoTitle: videoTitle || "Unknown",
       channelName: channelName || "Unknown",
       videoDescription: videoDescription || "No description available",
@@ -984,7 +950,7 @@ async function handleAnalyzeTranscript(
 
     debugLog("[Readnote Studio] Requesting video analysis", settings.aiModel);
     const { text: responseText } = await requestAiCompletion({
-      maxTokens: 8192,
+      maxTokens: 6000,
       responseFormat: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
@@ -995,9 +961,7 @@ async function handleAnalyzeTranscript(
     // Parse the JSON, tolerating trailing commas / stray prose
     let analysis = parseLooseJson(responseText);
 
-    // Treat every model response as untrusted data. Rebuild the supported
-    // schema and derive display timestamps from validated numeric seconds.
-    analysis = validateAndFixTimestamps(analysis, maxTimestampSeconds);
+    analysis = validateOverview(analysis);
 
     return {
       success: true,
@@ -1027,77 +991,15 @@ async function handleAnalyzeTranscript(
 }
 
 /**
- * Validates all timestamps in the analysis and fixes any that exceed video duration.
- * This is a safety net to prevent hallucinated timestamps from reaching the UI.
- *
- * @param {Object} analysis - The parsed analysis from DeepSeek
- * @param {number} maxSeconds - Maximum valid timestamp in seconds
- * @returns {Object} - Analysis with validated timestamps
+ * Rebuilds the one-field Overview schema from untrusted model output.
  */
-function validateAndFixTimestamps(analysis, maxSeconds) {
-  const safeMax =
-    Number.isFinite(Number(maxSeconds)) && Number(maxSeconds) > 0
-      ? Number(maxSeconds)
-      : Number.MAX_SAFE_INTEGER;
-
-  // Helper to format seconds as MM:SS
-  const formatTimestamp = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${String(secs).padStart(2, "0")}`;
+function validateOverview(analysis) {
+  return {
+    overviewZh:
+      typeof analysis?.overviewZh === "string"
+        ? analysis.overviewZh.trim().slice(0, 30_000)
+        : "",
   };
-
-  const safeString = (value, maxLength) =>
-    typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-  const safeSeconds = (value) => {
-    const seconds = Number(value);
-    if (!Number.isFinite(seconds) || seconds < 0 || seconds > safeMax) {
-      return null;
-    }
-    return Math.floor(seconds);
-  };
-
-  const chapters = (Array.isArray(analysis?.chapters) ? analysis.chapters : [])
-    .slice(0, 100)
-    .map((chapter) => {
-      const seconds = safeSeconds(chapter?.timestampSeconds);
-      const title = safeString(chapter?.title, 300);
-      if (seconds === null || !title) return null;
-      return {
-        title,
-        summary: safeString(chapter?.summary, 1500),
-        timestampSeconds: seconds,
-        timestamp: formatTimestamp(seconds),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.timestampSeconds - b.timestampSeconds);
-
-  const keyQuotes = (
-    Array.isArray(analysis?.keyQuotes) ? analysis.keyQuotes : []
-  )
-    .slice(0, 50)
-    .map((quote) => {
-      const seconds = safeSeconds(quote?.timestampSeconds);
-      const text = safeString(quote?.quote, 3000);
-      if (seconds === null || !text) return null;
-      return {
-        quote: text,
-        timestampSeconds: seconds,
-        timestamp: formatTimestamp(seconds),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.timestampSeconds - b.timestampSeconds);
-
-  const keyMoments = (
-    Array.isArray(analysis?.keyMoments) ? analysis.keyMoments : []
-  )
-    .map(safeSeconds)
-    .filter((seconds) => seconds !== null)
-    .slice(0, 100);
-
-  return { chapters, keyQuotes, keyMoments };
 }
 
 // ============================================================
@@ -1210,7 +1112,7 @@ async function handleSetOverlayMode(videoId, mode) {
   return { success: true, mode };
 }
 
-async function handleTranslateOverlaySegment(videoId, segmentId) {
+async function handleTranslateOverlayBatch(videoId, segmentIds) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
   const cacheKey = `digest_${videoId}`;
   const stored = await chrome.storage.local.get(cacheKey);
@@ -1218,37 +1120,62 @@ async function handleTranslateOverlaySegment(videoId, segmentId) {
   if (!cached?.transcript?.length) {
     return { success: false, error: "Transcript is not ready." };
   }
-  const segment = ReadnoteTranscript.groupEntries(
+  const segments = ReadnoteTranscript.groupEntries(
     cached.transcript,
     OVERLAY_SEGMENT_LIMITS,
-  ).find(
-    (item) => item.id === segmentId,
   );
-  if (!segment) {
-    return { success: false, error: "Subtitle segment is no longer available." };
+  const requestedIds = [...new Set(Array.isArray(segmentIds) ? segmentIds : [])]
+    .filter((id) => typeof id === "string")
+    .slice(0, 8);
+  const requested = requestedIds
+    .map((id) => segments.find((segment) => segment.id === id))
+    .filter(Boolean);
+  if (!requested.length) {
+    return { success: false, error: "Subtitle segments are no longer available." };
   }
-  const translationKey = ReadnoteTranscript.translationKey(videoId, segment);
-  const existingTranslation = cached.paragraphCache?.[translationKey];
-  if (existingTranslation) {
-    return { success: true, segmentId, translation: existingTranslation };
+  const cachedTranslations = cached.paragraphCache || {};
+  const translations = new Map();
+  const missing = [];
+  requested.forEach((segment) => {
+    const existing = cachedTranslations[ReadnoteTranscript.translationKey(videoId, segment)];
+    if (existing) translations.set(segment.id, existing);
+    else missing.push(segment);
+  });
+
+  if (missing.length) {
+    const result = await handleTranslateContent(
+      { segments: missing.map(({ id, text }) => ({ id, text })) },
+      "transcriptBatch",
+      "zh",
+      cached.videoTitle || "",
+    );
+    if (!result?.success) {
+      return { success: false, error: result?.error || "Translation failed." };
+    }
+    for (const item of result.translatedContent?.segments || []) {
+      if (typeof item?.id === "string" && typeof item?.text === "string" && item.text.trim()) {
+        translations.set(item.id, item.text.trim());
+      }
+    }
   }
 
-  const result = await handleTranslateContent(
-    { segments: [{ id: segment.id, text: segment.text }] },
-    "transcriptBatch",
-    "zh",
-    cached.videoTitle || "",
-  );
-  const translation = result?.translatedContent?.segments?.find(
-    (item) => item.id === segment.id,
-  )?.text;
-  if (!result?.success || !translation) {
-    return { success: false, error: result?.error || "Translation failed." };
+  if (!translations.size) {
+    return { success: false, error: "Translation returned no subtitle text." };
   }
-
-  cached.paragraphCache = { ...(cached.paragraphCache || {}), [translationKey]: translation };
+  cached.paragraphCache = { ...(cached.paragraphCache || {}) };
+  requested.forEach((segment) => {
+    const translation = translations.get(segment.id);
+    if (translation) {
+      cached.paragraphCache[ReadnoteTranscript.translationKey(videoId, segment)] = translation;
+    }
+  });
   await chrome.storage.local.set({ [cacheKey]: cached });
-  return { success: true, segmentId, translation };
+  return {
+    success: true,
+    translations: requested
+      .filter((segment) => translations.has(segment.id))
+      .map((segment) => ({ segmentId: segment.id, translation: translations.get(segment.id) })),
+  };
 }
 
 async function syncNoteToKnowledgeBase(note) {

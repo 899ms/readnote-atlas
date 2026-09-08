@@ -27,12 +27,13 @@ The project combines the local-first knowledge workflow of [Readnote](https://gi
 ### YouTube videos
 
 - Show an English and Simplified Chinese subtitle layer directly over the player.
-- Switch the player layer between `中英`, `EN`, and `关闭`.
+- Keep bilingual English + Chinese on with one `On` / `Off` switch.
+- Expand a small `Aa` control to adjust the subtitle font, size, and vertical position; it collapses again after each choice.
 - Read the complete timestamped transcript in Chrome's side panel.
 - Search the transcript and jump between matches without moving playback.
-- Click a transcript row, chapter, quote, or note to seek to that moment.
+- Click a transcript row or note to seek to that moment.
 - Select transcript passages to explain or save as timestamped notes.
-- Generate an on-demand overview with full-video chapters and key quotes.
+- Generate one comprehensive Chinese overview of the full discussion on demand.
 - Save every video note locally first, then sync it to Obsidian and/or Notion.
 
 ## Install for development
