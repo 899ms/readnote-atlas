@@ -470,7 +470,7 @@ function injectReadnoteSubtitleOverlay(player) {
   style.id = "readnote-subtitle-style";
   style.textContent = `
     #readnote-subtitle-root { position:absolute; inset:0; z-index:48; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,78%); width:min(88%,1100px); transform:translate(-50%,-50%) scale(var(--rn-subtitle-scale,1)); transform-origin:center; display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,78%); width:max-content; max-width:min(88%,1100px); transform:translate(-50%,-50%) scale(var(--rn-subtitle-scale,1)); transform-origin:center; display:grid; gap:4px; justify-items:center; text-align:center; transition:opacity .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
     #readnote-subtitle-root .rn-subtitle-copy.is-dragging { cursor:grabbing; }
     #readnote-subtitle-root .rn-subtitle-line { width:max-content; max-width:100%; padding:3px 11px; border-radius:8px; background:rgba(7,7,8,.78); color:#fff; font-size:clamp(18px,2.05vw,29px); line-height:1.28; letter-spacing:.01em; text-align:center; white-space:pre-line; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); box-decoration-break:clone; -webkit-box-decoration-break:clone; pointer-events:none; }
     #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
