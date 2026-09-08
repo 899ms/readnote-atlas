@@ -164,6 +164,20 @@ var ReadnoteTranscript = (() => {
     return DISPLAY_MODES.includes(value);
   }
 
+  async function saveDisplayMode(storage, videoId, mode, updatedAt = Date.now()) {
+    if (!storage || !videoId || !isDisplayMode(mode)) return false;
+    const stored = await storage.get(DISPLAY_MODE_STORAGE_KEY);
+    const modes = { ...(stored?.[DISPLAY_MODE_STORAGE_KEY] || {}) };
+    modes[videoId] = { mode, updatedAt };
+    const recentModes = Object.fromEntries(
+      Object.entries(modes)
+        .sort(([, left], [, right]) => (right.updatedAt || 0) - (left.updatedAt || 0))
+        .slice(0, 50),
+    );
+    await storage.set({ [DISPLAY_MODE_STORAGE_KEY]: recentModes });
+    return true;
+  }
+
   function textFingerprint(text) {
     const clean = normalizeText(text);
     let hash = 2166136261;
@@ -184,6 +198,7 @@ var ReadnoteTranscript = (() => {
     DEFAULT_DISPLAY_MODE,
     DISPLAY_MODE_STORAGE_KEY,
     isDisplayMode,
+    saveDisplayMode,
     normalizeText,
     groupEntries,
     activeSegment,

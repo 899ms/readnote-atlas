@@ -55,3 +55,31 @@ test("long player subtitles split once near a natural midpoint", () => {
   assert.equal(chinese.split("\n").length, 2);
   assert.match(chinese, /，\n/);
 });
+
+test("persists only the 50 most recent bilingual display choices", async () => {
+  const data = {};
+  const storage = {
+    async get(key) {
+      return { [key]: data[key] };
+    },
+    async set(values) {
+      Object.assign(data, values);
+    },
+  };
+
+  for (let index = 0; index < 52; index += 1) {
+    await transcript.saveDisplayMode(
+      storage,
+      `video-${index}`,
+      index % 2 ? "off" : "bilingual",
+      index,
+    );
+  }
+
+  const saved = data[transcript.DISPLAY_MODE_STORAGE_KEY];
+  assert.equal(Object.keys(saved).length, 50);
+  assert.equal(saved["video-51"].mode, "off");
+  assert.equal(saved["video-0"], undefined);
+  assert.equal(saved["video-1"], undefined);
+  assert.equal(await transcript.saveDisplayMode(storage, "video-x", "english"), false);
+});

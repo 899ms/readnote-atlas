@@ -1101,16 +1101,7 @@ async function handleSetOverlayMode(videoId, mode) {
   if (!ReadnoteTranscript.isDisplayMode(mode)) {
     return { success: false, error: "Unsupported subtitle mode." };
   }
-  const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
-  const stored = await chrome.storage.local.get(storageKey);
-  const existing = stored[storageKey] || {};
-  existing[videoId] = { mode, updatedAt: Date.now() };
-  const recent = Object.fromEntries(
-    Object.entries(existing)
-      .sort(([, left], [, right]) => (right.updatedAt || 0) - (left.updatedAt || 0))
-      .slice(0, 50),
-  );
-  await chrome.storage.local.set({ [storageKey]: recent });
+  await ReadnoteTranscript.saveDisplayMode(chrome.storage.local, videoId, mode);
   return { success: true, mode };
 }
 

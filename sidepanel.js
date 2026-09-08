@@ -2439,19 +2439,7 @@ async function loadDisplayLanguageMode(videoId) {
 }
 
 async function saveDisplayLanguageMode(videoId, mode) {
-  if (!videoId || !ReadnoteTranscript.isDisplayMode(mode)) return;
-  const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
-  const stored = await chrome.storage.local.get(storageKey);
-  const modes = stored?.[storageKey] || {};
-  modes[videoId] = { mode, updatedAt: Date.now() };
-  const recentModes = Object.fromEntries(
-    Object.entries(modes)
-      .sort(([, a], [, b]) => (b.updatedAt || 0) - (a.updatedAt || 0))
-      .slice(0, 50),
-  );
-  await chrome.storage.local.set({
-    [storageKey]: recentModes,
-  });
+  await ReadnoteTranscript.saveDisplayMode(chrome.storage.local, videoId, mode);
 }
 
 function getActiveTranscriptSegments() {
