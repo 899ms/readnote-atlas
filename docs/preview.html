@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Readnote Studio · Product Preview</title>
+  <style>
+    :root { --ink:#2e2a24; --muted:#81786d; --paper:#f7f3ec; --line:#e8dfd3; --accent:#c8674f; --sage:#7c8b6f; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:#e8e6e1; color:var(--ink); font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .canvas { width:min(1480px,calc(100vw - 40px)); margin:28px auto; overflow:hidden; border:1px solid #cbc6be; border-radius:20px; background:white; box-shadow:0 28px 80px rgba(44,38,31,.16); }
+    .browser { height:54px; display:flex; align-items:center; gap:14px; padding:0 18px; border-bottom:1px solid #ddd8d0; background:#f7f6f3; }
+    .dots { display:flex; gap:7px; } .dots i { width:11px; height:11px; border-radius:50%; background:#c9c4bc; }
+    .address { flex:1; max-width:760px; margin:auto; padding:7px 14px; border:1px solid #ddd8d0; border-radius:9px; background:white; color:#77716a; font-size:12px; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1fr) 410px; height:min(780px,calc(100vh - 110px)); min-height:650px; }
+    .watch { display:grid; grid-template-rows:minmax(0,1fr) auto; padding:22px; background:#f6f6f6; }
+    .player { position:relative; overflow:hidden; border-radius:14px; background:linear-gradient(140deg,#546047 0%,#a88c72 45%,#283029 100%); box-shadow:inset 0 0 90px rgba(0,0,0,.2); }
+    .scene { position:absolute; inset:0; opacity:.8; background:linear-gradient(180deg,transparent 56%,rgba(0,0,0,.45)),radial-gradient(circle at 25% 35%,#c9d29f 0 12%,transparent 13%),radial-gradient(circle at 73% 38%,#222 0 8%,transparent 9%); }
+    .table { position:absolute; left:18%; right:18%; bottom:26%; height:9%; border-radius:50%; background:#181817; transform:perspective(500px) rotateX(58deg); }
+    .brand { position:absolute; top:20px; right:22px; color:rgba(255,255,255,.88); font-weight:750; letter-spacing:.03em; }
+    .mode { position:absolute; top:16px; left:16px; display:flex; gap:2px; padding:3px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(10,10,10,.66); backdrop-filter:blur(12px); }
+    .mode span { padding:5px 10px; border-radius:999px; color:#cfcfcf; font-size:11px; font-weight:700; } .mode .on { background:var(--accent); color:white; }
+    .note { position:absolute; top:17px; right:116px; padding:8px 14px; border-radius:999px; background:var(--accent); color:white; font-size:12px; font-weight:700; }
+    .captions { position:absolute; left:7%; right:7%; bottom:12%; display:grid; gap:5px; justify-items:center; text-align:center; }
+    .captions div { width:max-content; max-width:100%; padding:3px 12px; border-radius:7px; background:rgba(5,5,6,.76); color:white; font-size:clamp(17px,1.8vw,26px); line-height:1.35; text-shadow:0 2px 4px black; }
+    .captions .zh { color:#fff4c4; }
+    .controls { position:absolute; left:0; right:0; bottom:0; height:46px; background:linear-gradient(transparent,rgba(0,0,0,.78)); }
+    .progress { position:absolute; left:18px; right:18px; bottom:11px; height:3px; background:rgba(255,255,255,.35); } .progress:before { content:""; display:block; width:43%; height:100%; background:#e15b52; }
+    .meta { padding:16px 2px 4px; } .meta h1 { margin:0; font-size:19px; letter-spacing:-.02em; } .meta p { margin:4px 0 0; color:#777; }
+    .panel { display:flex; min-width:0; flex-direction:column; border-left:1px solid var(--line); background:var(--paper); }
+    .panel-head { padding:18px 18px 0; border-bottom:1px solid var(--line); background:rgba(247,243,236,.96); }
+    .title-row { display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
+    .video-title { min-width:0; font-family:Georgia,serif; font-size:15px; font-weight:700; } .channel { margin-top:3px; color:var(--muted); font-size:11px; }
+    .settings { padding:5px 10px; border:1px solid var(--line); border-radius:999px; background:white; color:#6c6359; font-size:11px; font-weight:700; }
+    .language { display:flex; gap:2px; margin-top:13px; padding:3px; width:max-content; border:1px solid var(--line); border-radius:999px; background:#eee8df; }
+    .language span { padding:4px 9px; border-radius:999px; color:var(--muted); font-size:10px; font-weight:700; } .language .on { background:white; color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .tabs { display:grid; grid-template-columns:repeat(3,1fr); margin-top:13px; } .tab { padding:9px 4px 10px; text-align:center; color:var(--muted); font-size:11px; font-weight:700; } .tab.on { border-bottom:2px solid var(--accent); color:var(--ink); }
+    .panel-body { overflow:hidden; padding:18px; }
+    .section-row { display:flex; align-items:center; justify-content:space-between; } .section-row strong { font-family:Georgia,serif; font-size:16px; }
+    .actions { display:flex; gap:6px; } .actions span { padding:4px 9px; border:1px solid var(--line); border-radius:999px; background:white; color:var(--muted); font-size:10px; font-weight:700; }
+    .search { margin:13px 0 12px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:white; color:#a0988d; font-size:11px; }
+    .transcript { display:grid; gap:6px; }
+    .row { position:relative; display:grid; grid-template-columns:45px 1fr; gap:8px; padding:10px 9px; border-left:2px solid transparent; border-radius:8px; }
+    .row.active { border-left-color:var(--accent); background:rgba(200,103,79,.08); } .time { color:var(--accent); font:10px/1.6 ui-monospace,monospace; }
+    .en { font-family:Georgia,serif; font-size:12.5px; line-height:1.45; } .cn { margin-top:4px; color:#766c61; font-size:12px; line-height:1.45; }
+    .selected { background:linear-gradient(transparent 52%,#efd67a 52%); }
+    .selection-menu { position:absolute; right:12px; top:-20px; display:flex; overflow:hidden; border:1px solid #d9cfc2; border-radius:999px; background:#fff; box-shadow:0 8px 24px rgba(42,34,25,.18); } .selection-menu span { padding:5px 11px; font-size:10px; font-weight:700; } .selection-menu span:last-child { background:var(--accent); color:white; }
+    .knowledge { margin-top:13px; display:flex; align-items:center; justify-content:space-between; padding:9px 10px; border:1px solid #dce2d8; border-radius:9px; background:#f2f5ef; color:#596651; font-size:10px; font-weight:700; }
+    @media (max-width:980px) { .workspace { grid-template-columns:1fr; height:auto; } .watch { min-height:560px; } .panel { min-height:660px; border-left:0; border-top:1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <div class="browser"><div class="dots"><i></i><i></i><i></i></div><div class="address">youtube.com/watch?v=readnote-studio</div></div>
+    <div class="workspace">
+      <section class="watch">
+        <div class="player">
+          <div class="scene"></div><div class="table"></div><div class="brand">READNOTE STUDIO</div>
+          <div class="mode"><span class="on">中英</span><span>EN</span><span>关闭</span></div><div class="note">＋ Note</div>
+          <div class="captions"><div>Most great products begin as a very specific personal need.</div><div class="zh">很多优秀产品，都源于一个非常具体的个人需求。</div></div>
+          <div class="controls"><div class="progress"></div></div>
+        </div>
+        <div class="meta"><h1>How personal tools become enduring products</h1><p>Field Notes · 42:18</p></div>
+      </section>
+      <aside class="panel">
+        <header class="panel-head">
+          <div class="title-row"><div><div class="video-title">How personal tools become enduring products</div><div class="channel">Field Notes</div></div><div class="settings">Settings</div></div>
+          <div class="language"><span>Original</span><span>中文</span><span class="on">双语</span></div>
+          <div class="tabs"><div class="tab on">Transcript</div><div class="tab">Overview</div><div class="tab">Notes</div></div>
+        </header>
+        <div class="panel-body">
+          <div class="section-row"><strong>Full Transcript</strong><div class="actions"><span>Copy</span><span>Export</span></div></div>
+          <div class="search">⌕&nbsp;&nbsp; Search words or phrases</div>
+          <div class="transcript">
+            <div class="row"><div class="time">12:06</div><div><div class="en">When the source stays visible, translation becomes a bridge instead of a replacement.</div><div class="cn">当原始内容始终可见时，翻译就会成为桥梁，而不是替代品。</div></div></div>
+            <div class="row active"><div class="time">12:18</div><div><div class="en">Most great products begin as a <span class="selected">very specific personal need</span>.</div><div class="cn">很多优秀产品，都源于一个非常具体的个人需求。</div></div><div class="selection-menu"><span>Explain</span><span>Save note</span></div></div>
+            <div class="row"><div class="time">12:29</div><div><div class="en">The important step is turning that moment into a system you can return to.</div><div class="cn">关键是把那个瞬间变成一套可以反复回到其中的系统。</div></div></div>
+            <div class="row"><div class="time">12:41</div><div><div class="en">A timestamp is not metadata. It is the anchor that reconnects the idea to its original context.</div><div class="cn">时间戳不只是元数据，而是让想法重新连接原始语境的锚点。</div></div></div>
+          </div>
+          <div class="knowledge"><span>Personal knowledge base</span><span>Obsidian + Notion connected</span></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

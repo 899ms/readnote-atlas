@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Readnote Studio",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "description": "Read English articles and videos with bilingual context, highlights, transcripts, and a personal knowledge base.",
+  "permissions": ["sidePanel", "storage", "tabs", "scripting"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://api.supadata.ai/*",
+    "https://api.deepseek.com/*",
+    "http://127.0.0.1:8791/*"
+  ],
+  "action": {
+    "default_title": "Open Readnote Studio",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["transcript.js", "content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": ["https://www.youtube.com/*"],
+      "js": ["article-reader.js"],
+      "css": ["article-reader.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

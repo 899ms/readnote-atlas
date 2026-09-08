@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.article-reader-build/
+.env
+.env.*
+!.env.example
+.DS_Store

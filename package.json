@@ -1,0 +1,24 @@
+{
+  "name": "readnote-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first reading and video study workspace for Chinese readers.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build-article-reader.mjs",
+    "test": "node --test tests/*.test.js",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run build && npm run typecheck && bash scripts/check-release.sh",
+    "package": "npm run build && bash scripts/package-extension.sh",
+    "companion": "node scripts/companion/companion-server.mjs"
+  },
+  "dependencies": {
+    "undici": "^8.5.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.313",
+    "@types/node": "^25.9.3",
+    "typescript": "^5.8.3",
+    "vite": "^8.0.16"
+  }
+}
