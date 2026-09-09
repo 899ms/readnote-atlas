@@ -43,7 +43,7 @@ let interfaceTranslationFailures = new Set();
 let currentNotes = [];
 let currentNotesFilterVideoId = null;
 const TRANSLATION_MESSAGE_TIMEOUT_MS = 130_000;
-const TRANSLATION_BATCH_SIZE = 6;
+const TRANSLATION_BATCH_SIZE = 3;
 
 // --- Transcript search state ---
 // Matches point to visible marks in the active transcript language mode.
@@ -110,10 +110,10 @@ let lastTranscriptScrollTop = 0;
 // ============================================================
 
 const TRANSCRIPT_SEGMENT_LIMITS = Object.freeze({
-  minChars: 60,
-  idealChars: 180,
-  maxChars: 320,
-  maxSeconds: 20,
+  minChars: 220,
+  idealChars: 460,
+  maxChars: 760,
+  maxSeconds: 75,
 });
 
 function normalizeCaptionText(text) {
@@ -293,7 +293,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.storage?.onChanged?.addListener((changes, areaName) => {
-  if (areaName !== "local" || !currentVideoId) return;
+  if (areaName !== "local") return;
+  if (
+    changes[ReadnoteLibrary.STORAGE_KEY] &&
+    resultTabIsActive("library")
+  ) {
+    void loadLibrary();
+  }
+  if (!currentVideoId) return;
   const modes =
     changes[ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY]?.newValue;
   const mode = modes?.[currentVideoId]?.mode;
@@ -463,6 +470,10 @@ function setupEventListeners() {
     setNotesFilter(true);
     loadNotes(null); // Load all notes
   });
+  document.getElementById("notesComposer")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveQuickThought();
+  });
 }
 
 function setNotesFilter(showAll) {
@@ -594,6 +605,11 @@ async function startDigest(videoId, videoUrl) {
         "restoring-transcript-view",
         Boolean(pendingTranscriptViewState),
       );
+    const overview = document.getElementById("overviewContent");
+    if (overview) {
+      overview.innerHTML =
+        '<p class="overview-placeholder">正在载入字幕，随后自动生成完整中文综述…</p>';
+    }
   }
 
   // Check cache for this video
@@ -638,7 +654,7 @@ async function startDigest(videoId, videoUrl) {
 
     showState("results");
     document.getElementById("tabsNav").style.display = "flex";
-    restorePendingTranscriptViewState(videoId);
+    if (videoChanged) switchTab("overview");
 
     // Load notes for this video
     loadNotes(videoId);
@@ -646,6 +662,7 @@ async function startDigest(videoId, videoUrl) {
     // Setup explain feature
     setupExplainFeature();
     if (currentTranscriptMode !== "off") translateTranscript();
+    if (!currentAnalysis) void triggerAnalysis();
     return;
   }
 
@@ -697,7 +714,7 @@ async function startDigest(videoId, videoUrl) {
   renderTranscript();
   showState("results");
   document.getElementById("tabsNav").style.display = "flex";
-  restorePendingTranscriptViewState(videoId);
+  switchTab("overview");
 
   // Load notes for this video
   loadNotes(videoId);
@@ -706,11 +723,12 @@ async function startDigest(videoId, videoUrl) {
   setupExplainFeature();
   if (currentTranscriptMode !== "off") translateTranscript();
 
+  // Overview is the first reading surface, so begin generating it as soon as
+  // captions are ready instead of making the user open a tab and wait.
+  void triggerAnalysis();
+
   // Save transcript to cache (without analysis)
   await saveToCache(videoId);
-
-  // DON'T run LLM analysis automatically - wait for user to click Overview tab
-  // This saves tokens when user just wants to see the transcript
 }
 
 // ============================================================
@@ -1316,6 +1334,10 @@ function switchTab(tabName) {
     requestAnimationFrame(() => {
       const contentArea = document.getElementById("contentArea");
       if (!contentArea || !transcriptTabIsActive()) return;
+      if (pendingTranscriptViewState?.videoId === currentVideoId) {
+        restorePendingTranscriptViewState(currentVideoId);
+        return;
+      }
       lastAutoScrollTime = Date.now();
       contentArea.scrollTop = lastTranscriptScrollTop;
     });
@@ -1334,6 +1356,14 @@ function switchTab(tabName) {
       );
       if (contentArea && notesPanelIsActive) contentArea.scrollTop = 0;
     });
+  }
+
+  if (tabName === "library") {
+    requestAnimationFrame(() => {
+      const contentArea = document.getElementById("contentArea");
+      if (contentArea && resultTabIsActive("library")) contentArea.scrollTop = 0;
+    });
+    void loadLibrary();
   }
 
   // Translate only the visible transcript or notes surface. Overview is
@@ -1357,8 +1387,9 @@ function switchTab(tabName) {
 }
 
 /**
- * Triggers the LLM analysis only when the user opens Overview.
- * This saves tokens by not running analysis until needed.
+ * Generates the Chinese overview once per video. startDigest calls this as
+ * soon as captions are available; the tab fallback also recovers gracefully
+ * if a prior background request failed or the cached digest predates Overview.
  */
 async function triggerAnalysis() {
   if (!currentTranscriptTimestamped || isAnalysisLoading || currentAnalysis)
@@ -1946,6 +1977,100 @@ async function updateCache() {
 // NOTES
 // ============================================================
 
+async function saveQuickThought() {
+  const input = document.getElementById("quickNoteInput");
+  const button = document.getElementById("quickNoteSaveBtn");
+  const thought = input?.value?.trim();
+  if (!thought || !currentVideoId || !button) return;
+
+  button.disabled = true;
+  button.textContent = "Saving…";
+  try {
+    const timeResult = await chrome.runtime.sendMessage({
+      action: "relayToContent",
+      payload: { action: "getCurrentTime" },
+    });
+    const timestamp = Number(timeResult?.response?.currentTime) || 0;
+    const result = await chrome.runtime.sendMessage({
+      action: "saveNote",
+      videoId: currentVideoId,
+      timestamp,
+      videoTitle: currentVideoTitle,
+      channelName: currentChannelName,
+      personalNote: thought,
+      noteOnly: true,
+    });
+    if (!result?.success) throw new Error(result?.error || "Could not save note");
+    input.value = "";
+    setNotesFilter(false);
+    await loadNotes(currentVideoId);
+    button.textContent = "Saved";
+  } catch (error) {
+    console.error("[Readnote Atlas Panel] Save thought error:", error);
+    button.textContent = "Retry";
+  } finally {
+    button.disabled = false;
+    setTimeout(() => {
+      if (button.textContent === "Saved") button.textContent = "Save note";
+    }, 1400);
+  }
+}
+
+async function loadLibrary() {
+  const list = document.getElementById("libraryList");
+  if (!list || typeof ReadnoteLibrary === "undefined") return;
+  try {
+    const stored = await chrome.storage.local.get(ReadnoteLibrary.STORAGE_KEY);
+    renderLibrary(
+      ReadnoteLibrary.qualifiedItems(stored[ReadnoteLibrary.STORAGE_KEY]),
+    );
+  } catch (error) {
+    console.error("[Readnote Atlas Panel] Load library error:", error);
+    list.innerHTML = '<p class="library-empty">暂时无法读取观看记录。</p>';
+  }
+}
+
+function renderLibrary(items) {
+  const list = document.getElementById("libraryList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!items.length) {
+    list.innerHTML =
+      '<div class="library-empty"><strong>这里还没有视频</strong><span>一条视频在前台实际播放累计满 10 分钟后，会自动出现在这里。</span></div>';
+    return;
+  }
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "library-item";
+    const watchedAt = item.lastWatchedAt
+      ? new Intl.DateTimeFormat("zh-CN", {
+          month: "short",
+          day: "numeric",
+        }).format(new Date(item.lastWatchedAt))
+      : "";
+    card.innerHTML = `
+      <img class="library-thumbnail" src="${escapeHtml(item.thumbnailUrl)}" alt="" loading="lazy" />
+      <div class="library-copy">
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.channelName)}</p>
+        <div class="library-meta">
+          <span>${escapeHtml(ReadnoteLibrary.formatWatchTime(item.watchedSeconds))}</span>
+          ${watchedAt ? `<span>${escapeHtml(watchedAt)}</span>` : ""}
+        </div>
+      </div>
+      <button class="library-open" type="button" aria-label="继续观看 ${escapeHtml(item.title)}">Continue</button>
+    `;
+    card.querySelector(".library-open").addEventListener("click", async () => {
+      const separator = item.url.includes("?") ? "&" : "?";
+      const url = `${item.url}${separator}t=${Math.floor(item.lastPosition)}s`;
+      if (youtubeTabId) await chrome.tabs.update(youtubeTabId, { url });
+      else await chrome.tabs.create({ url });
+    });
+    list.appendChild(card);
+  });
+}
+
 /**
  * Loads and renders notes from storage.
  * @param {string|null} videoId - Filter by video ID, or null for all notes
@@ -1995,8 +2120,8 @@ function renderNotes(notes, filteredVideoId) {
   if (!notes || notes.length === 0) {
     notesIntro.style.display = "block";
     notesIntro.textContent = filteredVideoId
-      ? "No notes for this video yet. Hover over the video and click Note to save."
-      : "No notes saved yet. Hover over a video and click Note to save.";
+      ? "还没有笔记。用播放器右上角的书签保存精彩时刻，或直接写下想法。"
+      : "还没有保存过笔记。";
     return;
   }
 
@@ -2009,9 +2134,10 @@ function renderNotes(notes, filteredVideoId) {
     noteEl.innerHTML = `
       <div class="note-header">
         <span class="note-timestamp" data-url="${escapeHtml(note.timestampedUrl)}" data-seconds="${Number(note.timestampSeconds) || 0}">${escapeHtml(note.timestamp)}</span>
+        <span class="note-kind">${note.kind === "thought" ? "Thought" : "Bookmark"}</span>
         ${!filteredVideoId ? `<span class="note-video-title">${escapeHtml(note.videoTitle)}</span>` : ""}
       </div>
-      <div class="note-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>
+      ${note.text ? `<div class="note-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>` : ""}
       ${note.personalNote ? `<div class="note-personal">${escapeHtml(note.personalNote)}</div>` : ""}
       <div class="knowledge-sync-row">
         <span class="knowledge-sync-badge" data-status="${escapeHtml(note.knowledgeSync?.status || "unavailable")}">${escapeHtml(knowledgeSyncLabel(note))}</span>

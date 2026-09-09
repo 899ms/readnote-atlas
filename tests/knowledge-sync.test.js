@@ -34,3 +34,15 @@ test("normalizes companion results into a compact sync state", () => {
   );
   assert.equal(knowledge.syncState(null).status, "unavailable");
 });
+
+test("free-form thoughts remain exportable without a quoted passage", () => {
+  const excerpt = knowledge.noteToExcerpt({
+    id: "thought_1",
+    videoId: "abc123",
+    videoTitle: "An interview",
+    timestampedUrl: "https://youtube.com/watch?v=abc123&t=90s",
+    text: "",
+    personalNote: "这让我想到复利并不只发生在资本上。",
+  });
+  assert.equal(excerpt.text, "这让我想到复利并不只发生在资本上。");
+});

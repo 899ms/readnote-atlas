@@ -42,12 +42,13 @@ See [PRODUCT.md](PRODUCT.md) for the product brief and [the real-time subtitle a
 - Stream the active Chinese translation as it arrives and pre-translate ahead of playback.
 - Recover quickly after a seek, even when playback starts in the middle of a long video.
 - Move and smoothly resize the subtitle area; text reflows naturally as its width changes.
-- Adjust subtitle typeface, size, and vertical position from a compact, collapsible `Aa` control.
-- Read and search the complete timestamped transcript in Chrome's side panel.
+- Open a clearly labelled, collapsible subtitle control for On / Off and text size; drag the subtitle itself to move it or its corner to reflow the width.
+- Land on an automatically generated comprehensive Chinese overview as soon as captions load.
+- Read, search, select, and translate the complete transcript as semantic paragraphs rather than caption fragments.
 - Click a transcript row or note to seek to the exact moment.
-- Explain or save selected transcript passages as timestamped notes.
-- Generate one comprehensive Chinese overview of the full discussion.
+- Use the small player bookmark to capture a strong moment, save a selected transcript passage, or write a free-form thought at the current timestamp.
 - Save notes locally first, then sync them to Obsidian and/or Notion.
+- Automatically collect videos after ten minutes of real foreground playback in a local Watched Library.
 
 ## Install for development
 
@@ -89,7 +90,7 @@ The companion stores secrets in `.env.local`, which is ignored by Git. Article e
 
 ## Privacy and data flow
 
-- Article annotations, translation caches, video transcripts, notes, and overviews live in Chrome local storage.
+- Article annotations, translation caches, video transcripts, notes, overviews, and watched-video progress live in Chrome local storage.
 - Article translation and knowledge sync go through the local companion at `127.0.0.1:8791`.
 - The companion writes only to the Markdown file and Notion page you configure.
 - Supadata receives a canonical YouTube URL when a transcript is requested.
@@ -105,7 +106,7 @@ npm run build       # compile the article reader content script
 npm test            # run unit and product-contract tests
 npm run typecheck   # check the TypeScript article reader
 npm run check       # build, typecheck, test, and audit the release set
-npm run package     # create dist/readnote-atlas-v0.1.0.zip
+npm run package     # create dist/readnote-atlas-v0.2.0.zip
 npm run companion   # start the local knowledge companion
 ```
 

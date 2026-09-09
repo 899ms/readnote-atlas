@@ -38,7 +38,7 @@ test("Overview is one comprehensive Chinese discussion summary", () => {
   assert.match(panelScript, /function normalizeCachedAnalysis/);
 });
 
-test("player subtitles prefetch a batch and expose quiet style controls", () => {
+test("player subtitles prefetch a batch and expose clear, minimal controls", () => {
   const content = read("content.js");
   const background = read("background.js");
   assert.match(content, /action: "translateOverlayBatch"/);
@@ -51,9 +51,10 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /message\.action === "subtitleTranslationPartial"/);
   assert.match(content, /message\.generation !== readnoteSubtitleTranslationGeneration/);
   assert.match(background, /handleTranslateOverlayBatch/);
-  assert.match(content, /data-style-action="font"/);
   assert.match(content, /data-style-action="smaller"/);
-  assert.match(content, /data-style-action="higher"/);
+  assert.match(content, />字号</);
+  assert.doesNotMatch(content, /data-style-action="font"/);
+  assert.doesNotMatch(content, /data-style-action="(?:higher|lower)"/);
   assert.match(content, /readnote_subtitle_style/);
   assert.match(content, /data-controls-toggle/);
   assert.match(content, /rn-subtitle-settings/);
@@ -66,7 +67,7 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /data-resize-handle/);
   assert.match(content, /readnoteSubtitleTranslationGeneration/);
   assert.match(content, /ReadnoteTranscript\.planTranslationWindow/);
-  assert.match(content, /readnote_subtitle_style_v5/);
+  assert.match(content, /readnote_subtitle_style_v6/);
   assert.match(content, /width:\s*"auto"/);
   assert.match(content, /width:var\(--rn-subtitle-width,max-content\)/);
   assert.match(content, /\.rn-subtitle-copy \{[^}]*background:rgba\(7,7,8,/);
@@ -78,6 +79,7 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /pointerPercent - interaction\.startLeftPercent/);
   assert.match(content, /readnoteSubtitleUrgentRequests\.has\(segment\.id\)/);
   assert.match(content, /\.rn-subtitle-zh \{[^}]*#fff7dc/);
+  assert.match(content, /background:rgba\(7,7,8,\.64\)/);
   assert.match(background, /idleTimeoutMs:\s*8_000/);
   assert.match(background, /hardTimeoutMs:\s*15_000/);
   assert.match(background, /stream:\s*true/);

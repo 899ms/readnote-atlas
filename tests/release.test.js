@@ -13,9 +13,13 @@ test("manifest exposes the unified article and video product", () => {
 
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, "Readnote Atlas");
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(packageJson.version, manifest.version);
-  assert.deepEqual(youtubeLayer.js, ["transcript.js", "content.js"]);
+  assert.deepEqual(youtubeLayer.js, [
+    "transcript.js",
+    "library.js",
+    "content.js",
+  ]);
   assert.deepEqual(articleLayer.js, ["article-reader.js"]);
   assert.ok(articleLayer.matches.includes("https://*/*"));
   assert.ok(articleLayer.exclude_matches.includes("https://www.youtube.com/*"));
@@ -46,9 +50,14 @@ test("video UI includes full transcript, knowledge sync, and player subtitle con
   const panelScript = read("sidepanel.js");
   const contentScript = read("content.js");
 
-  assert.match(panel, />Full Transcript</);
+  assert.match(panel, />Paragraph Transcript</);
   assert.match(panel, /data-tab="overview"/);
   assert.match(panel, /data-tab="notes"/);
+  assert.match(panel, /data-tab="library"/);
+  assert.match(panel, /class="tab active" data-tab="overview"/);
+  assert.match(panel, /id="notesComposer"/);
+  assert.match(panelScript, /void triggerAnalysis\(\)/);
+  assert.match(panelScript, /ReadnoteLibrary\.qualifiedItems/);
   assert.match(panelScript, /knowledge-sync-badge/);
   assert.match(panelScript, /action: "syncNote"/);
   assert.match(contentScript, /data-mode="bilingual">On/);

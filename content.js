@@ -50,14 +50,17 @@ const SUBTITLE_PREFETCH_SECONDS = 180;
 const MAX_SUBTITLE_PREFETCH_REQUESTS = 3;
 const SUBTITLE_PREFETCH_DELAY_MS = 250;
 let readnoteSubtitleTranslationGeneration = 0;
-const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v5";
+const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v6";
 let readnoteSubtitleStyle = {
-  font: "sans",
   size: "medium",
   x: 50,
-  y: 76,
+  y: 80,
   width: "auto",
 };
+let watchHistoryTracker = null;
+let watchHistoryTimer = null;
+let watchHistoryListenersAdded = false;
+const WATCH_HISTORY_FLUSH_SECONDS = 10;
 
 // ============================================================
 // INITIALIZATION
@@ -78,11 +81,26 @@ function init() {
   injectDigestButton();
   tryInjectNoteButton();
   setupReadnoteSubtitles();
+  setupWatchHistoryTracking();
 
   // Also set up an observer to handle YouTube's dynamic content loading
   // (YouTube is an SPA, so elements appear/disappear as you navigate)
   setupButtonObserver();
   setupDigestButtonResizeListener();
+}
+
+// Persist partial progress when the tab goes into the background. Hidden or
+// paused time is deliberately excluded from the ten-minute album threshold.
+function setupWatchHistoryPageListeners() {
+  if (watchHistoryListenersAdded) return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void flushWatchHistoryProgress();
+    if (watchHistoryTracker) watchHistoryTracker.lastTick = performance.now();
+  });
+  window.addEventListener("pagehide", () => {
+    void flushWatchHistoryProgress();
+  });
+  watchHistoryListenersAdded = true;
 }
 
 chrome.storage?.onChanged?.addListener((changes, areaName) => {
@@ -429,6 +447,7 @@ function setupButtonObserver() {
     // Check if we need to inject the buttons
     if (window.location.pathname.includes("/watch")) {
       scheduleDigestButtonReconciliation();
+      setupWatchHistoryTracking();
       if (!ytdNoteButton || !ytdNoteButton.isConnected) {
         tryInjectNoteButton();
       }
@@ -448,6 +467,7 @@ function setupButtonObserver() {
 
 function currentReadnoteVideoId() {
   if (!window.location.pathname.includes("/watch")) return "";
+  if (typeof URLSearchParams === "undefined") return "";
   return new URLSearchParams(window.location.search).get("v") || "";
 }
 
@@ -503,24 +523,26 @@ function injectReadnoteSubtitleOverlay(player) {
   style.id = "readnote-subtitle-style";
   style.textContent = `
     #readnote-subtitle-root { position:absolute; inset:0; z-index:9998; pointer-events:none; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,76%); width:var(--rn-subtitle-width,max-content); max-width:90%; padding:9px 16px 10px; border:1px solid transparent; border-radius:12px; box-sizing:border-box; transform:translate3d(-50%,-50%,0); display:flex; flex-direction:column; gap:5px; align-items:center; text-align:center; background:rgba(7,7,8,.78); box-shadow:0 4px 18px rgba(0,0,0,.2); backdrop-filter:blur(2px); transition:opacity .16s ease,border-color .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+    #readnote-subtitle-root .rn-subtitle-copy { position:absolute; left:var(--rn-subtitle-x,50%); top:var(--rn-subtitle-y,80%); width:var(--rn-subtitle-width,max-content); max-width:86%; padding:8px 18px 9px; border:1px solid transparent; border-radius:10px; box-sizing:border-box; transform:translate3d(-50%,-50%,0); display:flex; flex-direction:column; gap:4px; align-items:center; text-align:center; background:rgba(7,7,8,.64); box-shadow:0 4px 18px rgba(0,0,0,.16); backdrop-filter:blur(3px); transition:opacity .16s ease,border-color .16s ease; pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
     #readnote-subtitle-root .rn-subtitle-copy:hover { border-color:rgba(255,255,255,.32); }
     #readnote-subtitle-root .rn-subtitle-copy.is-dragging { cursor:grabbing; }
     #readnote-subtitle-root .rn-subtitle-line { width:100%; max-width:100%; padding:0; background:transparent; color:#fff; font-size:clamp(16px,1.45vw,24px); line-height:1.32; letter-spacing:.005em; text-align:center; white-space:normal; overflow-wrap:break-word; text-wrap:balance; text-shadow:0 2px 4px rgba(0,0,0,.82); pointer-events:none; }
     #readnote-subtitle-root .rn-subtitle-line:empty { display:none; }
     #readnote-subtitle-root .rn-subtitle-zh { color:#fff7dc; font-size:clamp(15px,1.38vw,23px); font-weight:550; }
     #readnote-subtitle-root .rn-subtitle-zh.is-pending { color:rgba(255,247,220,.68); }
-    #readnote-subtitle-root .rn-subtitle-controls { position:absolute; top:14px; left:14px; display:flex; padding:3px; gap:2px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(15,15,16,.74); opacity:0; pointer-events:auto; backdrop-filter:blur(14px); transition:opacity .18s ease; }
+    #readnote-subtitle-root .rn-subtitle-controls { position:absolute; top:14px; left:14px; display:flex; padding:3px; gap:2px; border:1px solid rgba(255,255,255,.18); border-radius:9px; background:rgba(15,15,16,.72); opacity:0; pointer-events:auto; backdrop-filter:blur(14px); transition:opacity .18s ease; }
     #movie_player:hover #readnote-subtitle-root .rn-subtitle-controls, #readnote-subtitle-root .rn-subtitle-controls:focus-within { opacity:1; }
-    #readnote-subtitle-root .rn-subtitle-settings { display:flex; gap:2px; align-items:center; }
+    #readnote-subtitle-root .rn-subtitle-settings { display:flex; gap:3px; align-items:center; }
     #readnote-subtitle-root .rn-subtitle-controls:not(.is-expanded) .rn-subtitle-settings { display:none; }
-    #readnote-subtitle-root .rn-subtitle-controls-toggle { min-width:34px; padding:0 8px; color:white; }
-    #readnote-subtitle-root .rn-subtitle-mode { min-width:45px; height:28px; padding:0 10px; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.72); font:600 11px/1 Inter,system-ui,sans-serif; cursor:pointer; }
+    #readnote-subtitle-root .rn-subtitle-controls-toggle { display:flex; min-width:48px; gap:5px; padding:0 8px; align-items:center; color:white; }
+    #readnote-subtitle-root .rn-subtitle-controls-toggle svg { width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
+    #readnote-subtitle-root .rn-subtitle-mode { min-width:42px; height:28px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:rgba(255,255,255,.72); font:600 11px/1 Inter,system-ui,sans-serif; cursor:pointer; }
     #readnote-subtitle-root .rn-subtitle-mode[aria-pressed="true"] { background:#0969da; color:white; }
     #readnote-subtitle-root .rn-subtitle-divider { width:1px; height:18px; align-self:center; background:rgba(255,255,255,.18); }
-    #readnote-subtitle-root[data-font="serif"] .rn-subtitle-line { font-family:Georgia,"Noto Serif SC",serif; }
     #readnote-subtitle-root[data-size="small"] .rn-subtitle-line { font-size:clamp(14px,1.2vw,20px); }
     #readnote-subtitle-root[data-size="large"] .rn-subtitle-line { font-size:clamp(18px,1.75vw,28px); }
+    #readnote-subtitle-root .rn-subtitle-size-label { padding:0 3px 0 6px; color:rgba(255,255,255,.58); font:600 10px/1 Inter,system-ui,sans-serif; }
+    #readnote-subtitle-root .rn-subtitle-size { min-width:28px; width:28px; padding:0; font-size:16px; }
     #readnote-subtitle-root .rn-subtitle-resize { position:absolute; right:-9px; bottom:-9px; width:24px; height:24px; padding:0; border:0; background:transparent; cursor:nwse-resize; opacity:0; transition:opacity .16s ease; pointer-events:auto; touch-action:none; }
     #readnote-subtitle-root .rn-subtitle-copy:hover .rn-subtitle-resize, #readnote-subtitle-root .rn-subtitle-copy.is-dragging .rn-subtitle-resize { opacity:1; }
     #readnote-subtitle-root .rn-subtitle-resize::after { content:""; position:absolute; right:5px; bottom:5px; width:9px; height:9px; border-right:2px solid #fff; border-bottom:2px solid #fff; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
@@ -540,16 +562,17 @@ function injectReadnoteSubtitleOverlay(player) {
       <button class="rn-subtitle-resize" type="button" data-resize-handle aria-label="Resize bilingual subtitles" title="Drag to resize"></button>
     </div>
     <div class="rn-subtitle-controls" role="group" aria-label="Readnote subtitle display">
-      <button class="rn-subtitle-mode rn-subtitle-controls-toggle" type="button" data-controls-toggle aria-expanded="false" title="Subtitle settings">Aa</button>
+      <button class="rn-subtitle-mode rn-subtitle-controls-toggle" type="button" data-controls-toggle aria-expanded="false" title="字幕设置">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h8M12 4h2M2 8h2M6 8h8M2 12h6M10 12h4"></path><circle cx="11" cy="4" r="1"></circle><circle cx="5" cy="8" r="1"></circle><circle cx="9" cy="12" r="1"></circle></svg>
+        <span>字幕</span>
+      </button>
       <div class="rn-subtitle-settings">
         <button class="rn-subtitle-mode" type="button" data-mode="bilingual">On</button>
         <button class="rn-subtitle-mode" type="button" data-mode="off">Off</button>
         <span class="rn-subtitle-divider" aria-hidden="true"></span>
-        <button class="rn-subtitle-mode" type="button" data-style-action="font" title="Switch subtitle font">Font</button>
-        <button class="rn-subtitle-mode" type="button" data-style-action="smaller" title="Smaller subtitles">A−</button>
-        <button class="rn-subtitle-mode" type="button" data-style-action="larger" title="Larger subtitles">A+</button>
-        <button class="rn-subtitle-mode" type="button" data-style-action="lower" title="Move subtitles down">↓</button>
-        <button class="rn-subtitle-mode" type="button" data-style-action="higher" title="Move subtitles up">↑</button>
+        <span class="rn-subtitle-size-label">字号</span>
+        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="smaller" aria-label="减小字幕字号" title="减小字号">−</button>
+        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="larger" aria-label="增大字幕字号" title="增大字号">+</button>
       </div>
     </div>
   `;
@@ -578,10 +601,14 @@ function injectReadnoteSubtitleOverlay(player) {
       event.preventDefault();
       event.stopPropagation();
       updateReadnoteSubtitleStyle(button.dataset.styleAction);
-      setReadnoteSubtitleControlsExpanded(false);
     });
   });
   setupReadnoteSubtitleTransform(root.querySelector(".rn-subtitle-copy"), player);
+  root.querySelector(".rn-subtitle-copy").addEventListener("dblclick", () => {
+    readnoteSubtitleStyle = normalizeReadnoteSubtitleStyle(null);
+    applyReadnoteSubtitleStyle();
+    void chrome.storage.local.set({ [SUBTITLE_STYLE_STORAGE_KEY]: readnoteSubtitleStyle });
+  });
   player.appendChild(root);
   readnoteSubtitleRoot = root;
   updateReadnoteSubtitleControls();
@@ -607,10 +634,9 @@ function normalizeReadnoteSubtitleStyle(value) {
     : clamp(value.width, 24, 90, 58);
   const horizontalMargin = width === "auto" ? 5 : width / 2 + 2;
   return {
-    font: value?.font === "serif" ? "serif" : "sans",
     size: ["small", "medium", "large"].includes(value?.size) ? value.size : "medium",
     x: clamp(value?.x, horizontalMargin, 100 - horizontalMargin, 50),
-    y: clamp(value?.y, 14, 90, legacyY || 76),
+    y: clamp(value?.y, 14, 90, legacyY || 80),
     width,
   };
 }
@@ -627,7 +653,6 @@ async function loadReadnoteSubtitleStyle() {
 
 function applyReadnoteSubtitleStyle() {
   if (!readnoteSubtitleRoot) return;
-  readnoteSubtitleRoot.dataset.font = readnoteSubtitleStyle.font;
   readnoteSubtitleRoot.dataset.size = readnoteSubtitleStyle.size;
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-x", `${readnoteSubtitleStyle.x}%`);
   readnoteSubtitleRoot.style.setProperty("--rn-subtitle-y", `${readnoteSubtitleStyle.y}%`);
@@ -640,16 +665,10 @@ function applyReadnoteSubtitleStyle() {
 
 function updateReadnoteSubtitleStyle(action) {
   const sizes = ["small", "medium", "large"];
-  if (action === "font") {
-    readnoteSubtitleStyle.font = readnoteSubtitleStyle.font === "sans" ? "serif" : "sans";
-  } else if (action === "smaller") {
+  if (action === "smaller") {
     readnoteSubtitleStyle.size = sizes[Math.max(0, sizes.indexOf(readnoteSubtitleStyle.size) - 1)];
   } else if (action === "larger") {
     readnoteSubtitleStyle.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(readnoteSubtitleStyle.size) + 1)];
-  } else if (action === "lower") {
-    readnoteSubtitleStyle.y = Math.min(90, readnoteSubtitleStyle.y + 4);
-  } else if (action === "higher") {
-    readnoteSubtitleStyle.y = Math.max(14, readnoteSubtitleStyle.y - 4);
   }
   applyReadnoteSubtitleStyle();
   void chrome.storage.local.set({ [SUBTITLE_STYLE_STORAGE_KEY]: readnoteSubtitleStyle });
@@ -1040,15 +1059,16 @@ function injectNoteButton() {
 
   debugLog("[Readnote Atlas Content] Injecting note button");
 
-  // Create the note button — a soft rounded pill that floats over the player
+  // A compact bookmark marks the exact moment without competing with video.
   const noteButton = document.createElement("button");
   noteButton.id = "ytd-note-button";
+  noteButton.type = "button";
+  noteButton.setAttribute("aria-label", "Bookmark this moment");
+  noteButton.title = "Bookmark this moment (N)";
   noteButton.innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right: 7px;">
-      <path d="M12 20h9"></path>
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.8L6 21V4.8Z"></path>
     </svg>
-    <span>Note</span>
   `;
 
   // Compact Readnote-blue action with a restrained shadow.
@@ -1060,11 +1080,14 @@ function injectNoteButton() {
     z-index: 9999;
     display: flex;
     align-items: center;
-    padding: 9px 16px;
-    background: #0969da;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    background: rgba(15, 15, 16, 0.72);
     color: white;
-    border: none;
-    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.24);
+    border-radius: 9px;
     font-family: system-ui, -apple-system, "Roboto", sans-serif;
     font-size: 13px;
     font-weight: 600;
@@ -1073,7 +1096,8 @@ function injectNoteButton() {
     transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
     opacity: 0;
     pointer-events: none;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.24);
+    backdrop-filter: blur(12px);
   `;
 
   ytdNoteButton = noteButton;
@@ -1098,14 +1122,14 @@ function injectNoteButton() {
 
   // Hover effect — lift slightly
   noteButton.addEventListener("mouseenter", () => {
-    noteButton.style.background = "#0550ae";
-    noteButton.style.boxShadow = "0 6px 18px rgba(0,0,0,0.35)";
+    noteButton.style.background = "#0969da";
+    noteButton.style.boxShadow = "0 5px 16px rgba(0,0,0,0.3)";
     noteButton.style.transform = "translateY(-1px)";
   });
 
   noteButton.addEventListener("mouseleave", () => {
-    noteButton.style.background = "#0969da";
-    noteButton.style.boxShadow = "0 4px 14px rgba(0,0,0,0.3)";
+    noteButton.style.background = "rgba(15, 15, 16, 0.72)";
+    noteButton.style.boxShadow = "0 3px 12px rgba(0,0,0,0.24)";
     noteButton.style.transform = "translateY(0)";
   });
 
@@ -1191,8 +1215,7 @@ async function saveCurrentNote() {
   const originalContent = noteButton ? noteButton.innerHTML : "";
 
   if (noteButton) {
-    noteButton.innerHTML =
-      '<span style="letter-spacing: 0.2px;">SAVING...</span>';
+    noteButton.innerHTML = '<span aria-hidden="true" style="font-size:16px;line-height:1">…</span>';
     noteButton.style.pointerEvents = "none";
   }
 
@@ -1208,21 +1231,19 @@ async function saveCurrentNote() {
     if (result.success) {
       if (noteButton) {
         noteButton.innerHTML =
-          '<span style="letter-spacing: 0.2px;">SAVED</span>';
-        noteButton.style.background = "#7c8b6f";
+          '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.8L6 21V4.8Z"></path></svg>';
+        noteButton.style.background = "#1a7f37";
       }
       showNoteSavedToast(result.note);
     } else {
       if (noteButton) {
-        noteButton.innerHTML =
-          '<span style="letter-spacing: 0.2px;">ERROR</span>';
+        noteButton.innerHTML = '<span aria-hidden="true" style="font-weight:700">!</span>';
       }
       console.error("[Readnote Atlas] Save note error:", result.error);
     }
   } catch (err) {
     if (noteButton) {
-      noteButton.innerHTML =
-        '<span style="letter-spacing: 0.2px;">ERROR</span>';
+      noteButton.innerHTML = '<span aria-hidden="true" style="font-weight:700">!</span>';
     }
     console.error("[Readnote Atlas] Save note exception:", err);
   }
@@ -1230,7 +1251,7 @@ async function saveCurrentNote() {
   setTimeout(() => {
     if (noteButton) {
       noteButton.innerHTML = originalContent;
-      noteButton.style.background = "#0969da";
+      noteButton.style.background = "rgba(15, 15, 16, 0.72)";
       noteButton.style.pointerEvents = "auto";
     }
   }, 2000);
@@ -1247,7 +1268,7 @@ function showNoteSavedToast(note) {
   const toast = document.createElement("div");
   toast.id = "ytd-note-toast";
   toast.innerHTML = `
-    <div style="font-weight: 700; margin-bottom: 6px; color: #0969da;">Note saved</div>
+    <div style="font-weight: 700; margin-bottom: 6px; color: #0969da;">Bookmark saved</div>
     <div style="font-size: 12px; color: #57606a; margin-bottom: 8px;">${escapeHtmlForContent(note.timestamp)} — ${escapeHtmlForContent(note.videoTitle)}</div>
     <div style="font-size: 13px; line-height: 1.55; color: #24292f;">"${escapeHtmlForContent(note.text)}"</div>
     <div style="margin-top: 10px; font-size: 11px;">
@@ -1371,6 +1392,83 @@ function escapeHtmlForContent(text) {
 }
 
 // ============================================================
+// WATCHED VIDEO LIBRARY
+// ============================================================
+
+function currentWatchHistoryMetadata(videoId, video) {
+  const info = extractVideoInfo();
+  return {
+    videoId,
+    title: info.title,
+    channelName: info.channelName,
+    url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+    thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
+    duration: Number(video?.duration) || Number(info.duration) || 0,
+    lastPosition: Number(video?.currentTime) || 0,
+  };
+}
+
+function watchHistoryTick() {
+  const tracker = watchHistoryTracker;
+  if (!tracker) return;
+  const now = performance.now();
+  const elapsed = Math.min(2, Math.max(0, (now - tracker.lastTick) / 1000));
+  tracker.lastTick = now;
+  if (
+    document.visibilityState === "visible" &&
+    !tracker.video.paused &&
+    !tracker.video.ended &&
+    tracker.video.readyState >= 2
+  ) {
+    tracker.pendingSeconds += elapsed;
+  }
+  if (tracker.pendingSeconds >= WATCH_HISTORY_FLUSH_SECONDS) {
+    void flushWatchHistoryProgress();
+  }
+}
+
+async function flushWatchHistoryProgress() {
+  const tracker = watchHistoryTracker;
+  if (!tracker || tracker.pendingSeconds < 0.25) return;
+  const watchedSeconds = tracker.pendingSeconds;
+  tracker.pendingSeconds = 0;
+  const trackerVideoId = tracker.videoId;
+  try {
+    await chrome.runtime.sendMessage({
+      action: "recordWatchProgress",
+      video: currentWatchHistoryMetadata(tracker.videoId, tracker.video),
+      watchedSeconds,
+    });
+  } catch (_error) {
+    if (watchHistoryTracker?.videoId === trackerVideoId) {
+      watchHistoryTracker.pendingSeconds += watchedSeconds;
+    }
+  }
+}
+
+function setupWatchHistoryTracking() {
+  setupWatchHistoryPageListeners();
+  const videoId = currentReadnoteVideoId();
+  const video = document.querySelector("video.html5-main-video");
+  if (!videoId || !video) return;
+  if (
+    watchHistoryTracker?.videoId === videoId &&
+    watchHistoryTracker.video === video
+  ) {
+    return;
+  }
+  void flushWatchHistoryProgress();
+  watchHistoryTracker = {
+    videoId,
+    video,
+    pendingSeconds: 0,
+    lastTick: performance.now(),
+  };
+  clearInterval(watchHistoryTimer);
+  watchHistoryTimer = setInterval(watchHistoryTick, 1000);
+}
+
+// ============================================================
 // PAGE NAVIGATION DETECTION
 // ============================================================
 
@@ -1385,6 +1483,7 @@ function escapeHtmlForContent(text) {
  * we clean up old markers and re-inject the button.
  */
 document.addEventListener("yt-navigate-finish", () => {
+  void flushWatchHistoryProgress();
   cleanupReadnoteSubtitles();
   // Clean up old key moment markers when navigating to a new video
   const existingMarkers = document.querySelectorAll(".ytd-key-moment-markers");
@@ -1421,5 +1520,6 @@ document.addEventListener("yt-navigate-finish", () => {
     scheduleDigestButtonReconciliation(0);
     tryInjectNoteButton();
     setupReadnoteSubtitles();
+    setupWatchHistoryTracking();
   }, 500);
 });

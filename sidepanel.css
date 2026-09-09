@@ -531,7 +531,7 @@ body {
 }
 
 /* Hide the top of a rebuilt transcript until its saved position is applied. */
-.content.restoring-transcript-view #resultsState {
+.content.restoring-transcript-view .tab-panel[data-panel="transcript"] {
   visibility: hidden;
 }
 
@@ -1265,6 +1265,14 @@ body {
   color: #cf222e;
 }
 
+.transcript-intro,
+.library-intro {
+  margin: -7px 0 14px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
 /* Segmented filter control (This Video / All Notes) */
 .notes-filter {
   display: flex;
@@ -1317,6 +1325,62 @@ body {
   line-height: 1.7;
 }
 
+.notes-composer {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.notes-composer label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.notes-composer textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  outline: 0;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: 400 13px/1.6 var(--font-reading);
+}
+
+.notes-composer textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+  background: var(--surface);
+}
+
+.notes-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.notes-composer-footer span {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.notes-save-btn {
+  flex: 0 0 auto;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .note-item {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -1363,6 +1427,14 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.note-kind {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .note-delete {
@@ -1473,4 +1545,92 @@ body {
 .note-action-btn:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+/* ============================================================
+   WATCHED LIBRARY
+   ============================================================ */
+
+.library-item {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.library-thumbnail {
+  width: 104px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--surface-raised);
+}
+
+.library-copy {
+  min-width: 0;
+}
+
+.library-copy h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.library-copy > p {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.library-open {
+  grid-column: 1 / -1;
+  justify-self: end;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  font: 650 11px/1.4 var(--font-body);
+}
+
+.library-open:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 40px 24px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 12.5px;
+}
+
+.library-empty strong {
+  color: var(--text-secondary);
+  font-size: 13px;
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Readnote Atlas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "116",
   "description": "Read English articles and videos with bilingual context, highlights, transcripts, and a personal knowledge base.",
   "permissions": ["sidePanel", "storage", "tabs", "scripting"],
@@ -32,7 +32,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["transcript.js", "content.js"],
+      "js": ["transcript.js", "library.js", "content.js"],
       "run_at": "document_idle"
     },
     {

@@ -20,7 +20,7 @@ await build({
       input: resolve(rootDir, "src/article-reader/index.ts"),
       output: {
         format: "iife",
-        name: "ReadnoteStudioArticleReader",
+        name: "ReadnoteAtlasArticleReader",
         entryFileNames: "article-reader.js",
         inlineDynamicImports: true
       }

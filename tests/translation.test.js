@@ -175,7 +175,7 @@ test("a stale YouTube tab reinjects the content scripts and retries once", async
 
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
     ["send", 17, "getVideoInfo"],
-    ["inject", 17, ["transcript.js", "content.js"]],
+    ["inject", 17, ["transcript.js", "library.js", "content.js"]],
     ["send", 17, "getVideoInfo"],
   ]);
   assert.equal(result.title, "Recovered");
@@ -301,7 +301,7 @@ test("new videos default to bilingual On while returning videos restore their ch
   assert.equal(await loadDisplayLanguageMode("unseen-video"), "bilingual");
 });
 
-test("only visible source surfaces translate in six-item batches", () => {
+test("only visible source surfaces translate in paragraph-sized batches", () => {
   const js = read("sidepanel.js");
   const transcriptFunction = js.match(
     /async function translateTranscript\(\)[\s\S]*?\n}\n\nfunction setTranslatingSpinner/,
@@ -309,7 +309,7 @@ test("only visible source surfaces translate in six-item batches", () => {
 
   assert.ok(transcriptFunction);
   assert.doesNotMatch(transcriptFunction, /translationGeneration \+= 1/);
-  assert.match(js, /const TRANSLATION_BATCH_SIZE = 6/);
+  assert.match(js, /const TRANSLATION_BATCH_SIZE = 3/);
   assert.match(
     js,
     /const batch = missing\.slice\(start, start \+ TRANSLATION_BATCH_SIZE\)[\s\S]*?rerender\(\);[\s\S]*?await updateCache\(\)/,
@@ -395,11 +395,23 @@ test("a huge raw Supadata entry is split into seekable bounded segments", () => 
   const segments = groupTranscriptEntries([
     { start: 12, duration: 90, text },
   ]);
-  assert.ok(segments.length > 8);
-  assert.ok(segments.every((segment) => segment.text.length <= 384));
+  assert.ok(segments.length > 6);
+  assert.ok(segments.every((segment) => segment.text.length <= 912));
   assert.equal(segments[0].start, 12);
   assert.ok(segments.at(-1).start > segments[0].start);
   assert.ok(segments.every((segment) => /^segment-\d+-\d+$/.test(segment.id)));
+});
+
+test("default transcript grouping combines caption sentences into readable paragraphs", () => {
+  const { groupTranscriptEntries } = loadSidepanelHelpers();
+  const entries = Array.from({ length: 8 }, (_, index) => ({
+    start: index * 4,
+    text: `Sentence ${index + 1} develops one connected argument with enough context for reading.`,
+  }));
+  const segments = groupTranscriptEntries(entries);
+  assert.ok(segments.length < entries.length);
+  assert.ok(segments[0].text.includes("Sentence 1"));
+  assert.ok(segments[0].text.includes("Sentence 2"));
 });
 
 test("Chinese sentence and clause punctuation creates semantic guardrails", () => {

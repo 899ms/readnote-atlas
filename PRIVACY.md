@@ -6,7 +6,9 @@ Readnote Atlas is a local-first, bring-your-own-key Chrome extension. It has no 
 
 ## Data handled locally
 
-Chrome local storage may contain article URLs, extracted article text, annotations, translation caches, YouTube video ids and metadata, transcripts, overviews, timestamped notes, provider settings, and API keys. Video notes are limited to the latest 100. Video caches are limited to 20 entries and are expired after 30 days.
+Chrome local storage may contain article URLs, extracted article text, annotations, translation caches, YouTube video ids and metadata, transcripts, overviews, timestamped notes, watched seconds and last playback positions, provider settings, and API keys. Video notes are limited to the latest 100. The watched library is limited to 200 videos. Video caches are limited to 20 entries and are expired after 30 days.
+
+Watched time is calculated locally from wall-clock time while a YouTube video is playing in a visible tab. Seeking does not count as watched time. A video becomes visible in the Watched Library after ten cumulative minutes; partial progress is retained locally so viewing can continue across sessions.
 
 The extension runs its article reading layer on HTTP and HTTPS pages so it can translate and annotate them. It does not send a page anywhere until the user asks to translate or save an excerpt. YouTube uses a separate content script scoped to `youtube.com`.
 
@@ -33,7 +35,7 @@ These providers process data under their own terms, privacy policies, retention 
 ## Permissions
 
 - `sidePanel`: show the video transcript workspace.
-- `storage`: keep settings, annotations, notes, transcripts, and caches locally.
+- `storage`: keep settings, annotations, notes, transcripts, watched-video progress, and caches locally.
 - `tabs` and `scripting`: identify the active YouTube video and coordinate playback actions.
 - HTTP/HTTPS content script access: add the article reading and annotation layer.
 - Host access to YouTube, Supadata, DeepSeek, and `127.0.0.1:8791`: provide the documented product flows.

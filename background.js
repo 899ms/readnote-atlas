@@ -13,7 +13,7 @@
 
 // Import safe defaults and validation helpers. Secret keys live in
 // chrome.storage.local and are never part of the extension source.
-importScripts("settings.js", "transcript.js", "knowledge.js");
+importScripts("settings.js", "transcript.js", "knowledge.js", "library.js");
 
 const DEBUG = false;
 const AI_PROVIDER_IDLE_TIMEOUT_MS = 50_000;
@@ -32,6 +32,7 @@ const OVERLAY_SEGMENT_LIMITS = Object.freeze({
 const COMPANION_URL = "http://127.0.0.1:8791";
 const overlayTranscriptRequests = new Map();
 const overlayTranslationCacheWrites = new Map();
+let libraryWriteQueue = Promise.resolve();
 
 function isMissingContentReceiver(error) {
   return /Receiving end does not exist|Could not establish connection/i.test(
@@ -46,7 +47,7 @@ async function sendMessageToYouTubeContent(tabId, payload) {
     if (!isMissingContentReceiver(error)) throw error;
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["transcript.js", "content.js"],
+      files: ["transcript.js", "library.js", "content.js"],
     });
     return chrome.tabs.sendMessage(tabId, payload);
   }
@@ -480,7 +481,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       message.channelName,
       message.selectedText,
       message.personalNote,
+      message.noteOnly,
     )
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === "recordWatchProgress") {
+    handleRecordWatchProgress(message.video, message.watchedSeconds)
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -1401,6 +1410,7 @@ async function handleSaveNote(
   channelName,
   selectedText,
   personalNote,
+  noteOnly = false,
 ) {
   try {
     const canonicalVideoUrl = YTD_SETTINGS.canonicalYouTubeUrl(videoId);
@@ -1413,6 +1423,44 @@ async function handleSaveNote(
       typeof personalNote === "string"
         ? personalNote.replace(/\s+/g, " ").trim().slice(0, 3000)
         : "";
+
+    // Free-form thoughts are first-class notes even when the user has not
+    // selected a source passage. Keeping source text empty lets the Notes UI
+    // distinguish the user's own thought from a quoted transcript paragraph.
+    if (noteOnly && safePersonalNote) {
+      const minutes = Math.floor(safeTimestamp / 60);
+      const seconds = safeTimestamp % 60;
+      const note = {
+        id: `note_${Date.now()}`,
+        kind: "thought",
+        videoId,
+        videoTitle:
+          typeof videoTitle === "string"
+            ? videoTitle.slice(0, 500)
+            : "Untitled Video",
+        channelName:
+          typeof channelName === "string" ? channelName.slice(0, 300) : "",
+        timestamp: `${minutes}:${String(seconds).padStart(2, "0")}`,
+        timestampSeconds: safeTimestamp,
+        timestampedUrl: `${canonicalVideoUrl}&t=${safeTimestamp}s`,
+        text: "",
+        rawText: "",
+        personalNote: safePersonalNote,
+        knowledgeSync: {
+          status: "syncing",
+          obsidian: "unknown",
+          notion: "unknown",
+        },
+        createdAt: Date.now(),
+      };
+
+      await saveNoteToStorage(note);
+      void syncStoredNote(note).catch((error) =>
+        console.warn("[Readnote Atlas] Knowledge sync failed:", error),
+      );
+      chrome.runtime.sendMessage({ action: "noteSaved", note }).catch(() => {});
+      return { success: true, note };
+    }
 
     // A selected transcript note is already the exact text the user wants.
     // Save it directly without a transcript fetch or an AI cleanup request.
@@ -1587,6 +1635,33 @@ async function handleSaveNote(
     console.error("[Readnote Atlas] Save note error:", error);
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * Serializes watch-time writes from every YouTube tab. Content scripts send
+ * small wall-clock deltas only while a visible video is actually playing, so
+ * seeks and playback-position jumps never inflate the personal library.
+ */
+async function handleRecordWatchProgress(video, watchedSeconds) {
+  const queued = libraryWriteQueue.catch(() => {}).then(async () => {
+    const stored = await chrome.storage.local.get(ReadnoteLibrary.STORAGE_KEY);
+    const next = ReadnoteLibrary.recordWatchSample(
+      stored[ReadnoteLibrary.STORAGE_KEY],
+      video,
+      watchedSeconds,
+    );
+    await chrome.storage.local.set({ [ReadnoteLibrary.STORAGE_KEY]: next });
+    const item = next.items.find((entry) => entry.videoId === video?.videoId);
+    return {
+      success: true,
+      qualified:
+        Boolean(item) &&
+        item.watchedSeconds >= ReadnoteLibrary.WATCHED_THRESHOLD_SECONDS,
+      watchedSeconds: item?.watchedSeconds || 0,
+    };
+  });
+  libraryWriteQueue = queued;
+  return queued;
 }
 
 /**
@@ -2055,6 +2130,7 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   handleTranslateLiveSubtitle,
   mergeOverlayTranslationsIntoCache,
   handleSaveNote,
+  handleRecordWatchProgress,
   handleTranslateContent,
   closePanelForTab,
   updatePanelForTab,

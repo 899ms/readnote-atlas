@@ -15,8 +15,8 @@ var ReadnoteKnowledge = (() => {
       sourceId: youtubeSourceId(note?.timestampedUrl),
       sourceTitle: String(note?.videoTitle || "Untitled Video").trim(),
       sourceUrl: String(note?.timestampedUrl || "").trim(),
-      text: String(note?.text || "").trim(),
-      note: String(note?.personalNote || "").trim(),
+      text: String(note?.text || note?.personalNote || "").trim(),
+      note: note?.text ? String(note?.personalNote || "").trim() : "",
       translation: String(note?.translation || "").trim(),
       createdAt,
     };
