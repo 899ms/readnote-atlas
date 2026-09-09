@@ -35,15 +35,21 @@ let readnoteSubtitleSegments = [];
 let readnoteSubtitleMode = "bilingual";
 let readnoteSubtitleVideo = null;
 let readnoteSubtitleTimeListener = null;
+let readnoteSubtitleSeekListener = null;
 let readnoteSubtitleRefreshTimer = null;
 let readnoteSubtitleRetryTimer = null;
+let readnoteSubtitlePrefetchTimer = null;
 let readnoteSubtitleActiveId = "";
 let readnoteSubtitleTranslationError = "";
 const readnoteSubtitleTranslationRequests = new Set();
-const SUBTITLE_PREFETCH_COUNT = 6;
-const SUBTITLE_PREFETCH_WINDOW = 48;
-const MAX_SUBTITLE_TRANSLATION_REQUESTS = 2;
-let readnoteSubtitleTranslationInflight = 0;
+const readnoteSubtitleUrgentRequests = new Set();
+const readnoteSubtitlePrefetchInflight = new Map();
+const SUBTITLE_PREFETCH_BATCH_SIZE = 6;
+const SUBTITLE_PREFETCH_WINDOW = 96;
+const SUBTITLE_PREFETCH_SECONDS = 180;
+const MAX_SUBTITLE_PREFETCH_REQUESTS = 3;
+const SUBTITLE_PREFETCH_DELAY_MS = 250;
+let readnoteSubtitleTranslationGeneration = 0;
 const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v5";
 let readnoteSubtitleStyle = {
   font: "sans",
@@ -454,8 +460,14 @@ function setupReadnoteSubtitles() {
     void loadReadnoteSubtitleStyle();
     readnoteSubtitleVideo = video;
     readnoteSubtitleTimeListener = () => renderReadnoteSubtitle();
+    readnoteSubtitleSeekListener = () => {
+      readnoteSubtitleTranslationGeneration += 1;
+      clearTimeout(readnoteSubtitlePrefetchTimer);
+      readnoteSubtitlePrefetchTimer = null;
+      renderReadnoteSubtitle(true);
+    };
     video.addEventListener("timeupdate", readnoteSubtitleTimeListener);
-    video.addEventListener("seeking", readnoteSubtitleTimeListener);
+    video.addEventListener("seeking", readnoteSubtitleSeekListener);
     void refreshReadnoteSubtitleState();
   };
 
@@ -707,9 +719,10 @@ async function refreshReadnoteSubtitleState() {
         readnoteSubtitleSegments,
         readnoteSubtitleVideo?.currentTime || 0,
       );
-      const currentIndex = Math.max(0, readnoteSubtitleSegments.findIndex((item) => item.id === current?.id));
-      if (readnoteSubtitleMode === "bilingual") {
-        void requestReadnoteSubtitleTranslations(currentIndex);
+      const currentIndex = readnoteSubtitleSegments.findIndex((item) => item.id === current?.id);
+      if (readnoteSubtitleMode === "bilingual" && currentIndex >= 0) {
+        requestReadnoteActiveTranslation(currentIndex);
+        scheduleReadnoteSubtitlePrefetch(currentIndex, 0);
       }
     }
     updateReadnoteSubtitleControls();
@@ -725,30 +738,66 @@ async function refreshReadnoteSubtitleState() {
   }
 }
 
-async function requestReadnoteSubtitleTranslations(startIndex) {
+function requestReadnoteActiveTranslation(startIndex) {
   if (readnoteSubtitleMode !== "bilingual" || readnoteSubtitleTranslationError) return;
-  const activeSegment = readnoteSubtitleSegments[startIndex];
-  // Give the sentence on screen an uncontested fast lane. Starting the larger
-  // look-ahead batch while its one-line request is pending can make DeepSeek
-  // queue the visible translation behind work the viewer has not reached yet.
+  const segment = readnoteSubtitleSegments[startIndex];
+  if (!segment?.id || segment.translation || readnoteSubtitleUrgentRequests.has(segment.id)) return;
+  readnoteSubtitleUrgentRequests.add(segment.id);
+  readnoteSubtitleTranslationRequests.add(segment.id);
+  void requestReadnoteSubtitleBatch(
+    [segment],
+    "urgent",
+    readnoteSubtitleTranslationGeneration,
+    startIndex,
+  );
+}
+
+function scheduleReadnoteSubtitlePrefetch(
+  startIndex,
+  delay = SUBTITLE_PREFETCH_DELAY_MS,
+) {
+  if (readnoteSubtitleMode !== "bilingual") return;
+  clearTimeout(readnoteSubtitlePrefetchTimer);
+  const generation = readnoteSubtitleTranslationGeneration;
+  readnoteSubtitlePrefetchTimer = setTimeout(() => {
+    readnoteSubtitlePrefetchTimer = null;
+    dispatchReadnoteSubtitlePrefetch(startIndex, generation);
+  }, delay);
+}
+
+function dispatchReadnoteSubtitlePrefetch(startIndex, generation) {
   if (
-    activeSegment &&
-    !activeSegment.translation &&
-    readnoteSubtitleTranslationRequests.has(activeSegment.id)
+    generation !== readnoteSubtitleTranslationGeneration ||
+    readnoteSubtitleMode !== "bilingual"
   ) return;
-  if (readnoteSubtitleTranslationInflight >= MAX_SUBTITLE_TRANSLATION_REQUESTS) return;
-  const videoId = currentReadnoteVideoId();
-  if (!videoId) return;
-  const candidates = ReadnoteTranscript.translationCandidates(
+  const inflight = readnoteSubtitlePrefetchInflight.get(generation) || 0;
+  const available = MAX_SUBTITLE_PREFETCH_REQUESTS - inflight;
+  if (available <= 0) return;
+  const plan = ReadnoteTranscript.planTranslationWindow(
     readnoteSubtitleSegments,
     startIndex,
     readnoteSubtitleTranslationRequests,
-    SUBTITLE_PREFETCH_WINDOW,
-    SUBTITLE_PREFETCH_COUNT,
+    {
+      windowSize: SUBTITLE_PREFETCH_WINDOW,
+      windowSeconds: SUBTITLE_PREFETCH_SECONDS,
+      batchSize: SUBTITLE_PREFETCH_BATCH_SIZE,
+      batchCount: available,
+    },
   );
-  if (!candidates.length) return;
-  candidates.forEach((segment) => readnoteSubtitleTranslationRequests.add(segment.id));
-  readnoteSubtitleTranslationInflight += 1;
+  plan.batches.forEach((batch) => {
+    batch.forEach((segment) => readnoteSubtitleTranslationRequests.add(segment.id));
+    readnoteSubtitlePrefetchInflight.set(
+      generation,
+      (readnoteSubtitlePrefetchInflight.get(generation) || 0) + 1,
+    );
+    void requestReadnoteSubtitleBatch(batch, "prefetch", generation, startIndex);
+  });
+}
+
+async function requestReadnoteSubtitleBatch(candidates, lane, generation, startIndex) {
+  const videoId = currentReadnoteVideoId();
+  if (!videoId) return;
+  let completed = false;
   try {
     const result = await chrome.runtime.sendMessage({
       action: "translateOverlayBatch",
@@ -770,18 +819,56 @@ async function requestReadnoteSubtitleTranslations(startIndex) {
           10_000,
         );
       }
+      completed = true;
       renderReadnoteSubtitle();
-    } else {
+    } else if (lane === "urgent" && readnoteSubtitleActiveId === candidates[0]?.id) {
       showReadnoteSubtitleTranslationError(result?.error, candidates);
+    } else if (lane === "urgent") {
+      candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id));
+    } else {
+      retryReadnoteSubtitlePrefetch(candidates, startIndex, generation);
     }
   } catch (error) {
-    showReadnoteSubtitleTranslationError(error?.message, candidates);
+    if (lane === "urgent" && readnoteSubtitleActiveId === candidates[0]?.id) {
+      showReadnoteSubtitleTranslationError(error?.message, candidates);
+    } else if (lane === "urgent") {
+      candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id));
+    } else {
+      retryReadnoteSubtitlePrefetch(candidates, startIndex, generation);
+    }
   } finally {
-    readnoteSubtitleTranslationInflight = Math.max(
-      0,
-      readnoteSubtitleTranslationInflight - 1,
-    );
+    if (lane === "urgent") {
+      candidates.forEach((segment) => readnoteSubtitleUrgentRequests.delete(segment.id));
+    } else {
+      const remaining = Math.max(
+        0,
+        (readnoteSubtitlePrefetchInflight.get(generation) || 1) - 1,
+      );
+      if (remaining) readnoteSubtitlePrefetchInflight.set(generation, remaining);
+      else readnoteSubtitlePrefetchInflight.delete(generation);
+    }
+    if (completed) {
+      candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id));
+    }
+    if (generation === readnoteSubtitleTranslationGeneration) {
+      const activeIndex = readnoteSubtitleSegments.findIndex(
+        (segment) => segment.id === readnoteSubtitleActiveId,
+      );
+      if (activeIndex >= 0) {
+        requestReadnoteActiveTranslation(activeIndex);
+        scheduleReadnoteSubtitlePrefetch(activeIndex, completed ? 0 : 1_500);
+      }
+    }
   }
+}
+
+function retryReadnoteSubtitlePrefetch(candidates, startIndex, generation) {
+  setTimeout(() => {
+    candidates.forEach((segment) => readnoteSubtitleTranslationRequests.delete(segment.id));
+    if (generation === readnoteSubtitleTranslationGeneration) {
+      scheduleReadnoteSubtitlePrefetch(startIndex, 0);
+    }
+  }, 5_000);
 }
 
 function showReadnoteSubtitleTranslationError(error, candidates) {
@@ -793,6 +880,13 @@ function showReadnoteSubtitleTranslationError(error, candidates) {
     );
     readnoteSubtitleTranslationError = "";
     renderReadnoteSubtitle();
+    const activeIndex = readnoteSubtitleSegments.findIndex(
+      (segment) => segment.id === readnoteSubtitleActiveId,
+    );
+    if (activeIndex >= 0) {
+      requestReadnoteActiveTranslation(activeIndex);
+      scheduleReadnoteSubtitlePrefetch(activeIndex, 0);
+    }
   }, 10_000);
 }
 
@@ -803,7 +897,7 @@ function subtitleTranslationErrorMessage(error) {
   return "翻译暂时失败，稍后自动重试";
 }
 
-function renderReadnoteSubtitle() {
+function renderReadnoteSubtitle(forcePriorityRefresh = false) {
   if (!readnoteSubtitleRoot || !readnoteSubtitleVideo) return;
   const original = readnoteSubtitleRoot.querySelector(".rn-subtitle-original");
   const chinese = readnoteSubtitleRoot.querySelector(".rn-subtitle-zh");
@@ -825,6 +919,7 @@ function renderReadnoteSubtitle() {
     return;
   }
 
+  const activeChanged = readnoteSubtitleActiveId !== segment.id;
   readnoteSubtitleActiveId = segment.id;
   original.textContent = ReadnoteTranscript.wrapSubtitle(segment.text);
   chinese.hidden = false;
@@ -832,28 +927,41 @@ function renderReadnoteSubtitle() {
     segment.translation || readnoteSubtitleTranslationError || "正在生成中文…",
   );
   chinese.classList.toggle("is-pending", !segment.translation);
-  const activeIndex = readnoteSubtitleSegments.findIndex((item) => item.id === segment.id);
-  void requestReadnoteSubtitleTranslations(Math.max(0, activeIndex));
+  if (activeChanged || forcePriorityRefresh) {
+    const activeIndex = Math.max(
+      0,
+      readnoteSubtitleSegments.findIndex((item) => item.id === segment.id),
+    );
+    requestReadnoteActiveTranslation(activeIndex);
+    scheduleReadnoteSubtitlePrefetch(activeIndex);
+  }
 }
 
 function cleanupReadnoteSubtitles() {
   if (readnoteSubtitleVideo && readnoteSubtitleTimeListener) {
     readnoteSubtitleVideo.removeEventListener("timeupdate", readnoteSubtitleTimeListener);
-    readnoteSubtitleVideo.removeEventListener("seeking", readnoteSubtitleTimeListener);
+  }
+  if (readnoteSubtitleVideo && readnoteSubtitleSeekListener) {
+    readnoteSubtitleVideo.removeEventListener("seeking", readnoteSubtitleSeekListener);
   }
   clearInterval(readnoteSubtitleRefreshTimer);
   clearInterval(readnoteSubtitleRetryTimer);
+  clearTimeout(readnoteSubtitlePrefetchTimer);
   readnoteSubtitleRefreshTimer = null;
   readnoteSubtitleRetryTimer = null;
+  readnoteSubtitlePrefetchTimer = null;
   readnoteSubtitleRoot?.remove();
   document.getElementById("readnote-subtitle-style")?.remove();
   readnoteSubtitleRoot = null;
   readnoteSubtitleSegments = [];
   readnoteSubtitleVideo = null;
   readnoteSubtitleTimeListener = null;
+  readnoteSubtitleSeekListener = null;
   readnoteSubtitleActiveId = "";
   readnoteSubtitleTranslationError = "";
-  readnoteSubtitleTranslationInflight = 0;
+  readnoteSubtitleTranslationGeneration += 1;
+  readnoteSubtitleUrgentRequests.clear();
+  readnoteSubtitlePrefetchInflight.clear();
   readnoteSubtitleTranslationRequests.clear();
 }
 

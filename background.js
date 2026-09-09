@@ -31,6 +31,7 @@ const OVERLAY_SEGMENT_LIMITS = Object.freeze({
 });
 const COMPANION_URL = "http://127.0.0.1:8791";
 const overlayTranscriptRequests = new Map();
+const overlayTranslationCacheWrites = new Map();
 
 function isMissingContentReceiver(error) {
   return /Receiving end does not exist|Could not establish connection/i.test(
@@ -1126,6 +1127,35 @@ async function handleSetOverlayMode(videoId, mode) {
   return { success: true, mode };
 }
 
+/**
+ * Serialises per-video cache merges. Translation batches run concurrently, so
+ * writing the stale object each request originally read can erase a sibling
+ * batch that completed milliseconds earlier.
+ */
+async function mergeOverlayTranslationsIntoCache(videoId, translationsByKey) {
+  const cacheKey = `digest_${videoId}`;
+  const previous = overlayTranslationCacheWrites.get(videoId) || Promise.resolve();
+  const queued = previous.catch(() => {}).then(async () => {
+    const stored = await chrome.storage.local.get(cacheKey);
+    const latest = stored[cacheKey];
+    if (!latest?.transcript?.length) return false;
+    latest.paragraphCache = {
+      ...(latest.paragraphCache || {}),
+      ...translationsByKey,
+    };
+    await chrome.storage.local.set({ [cacheKey]: latest });
+    return true;
+  });
+  overlayTranslationCacheWrites.set(videoId, queued);
+  try {
+    return await queued;
+  } finally {
+    if (overlayTranslationCacheWrites.get(videoId) === queued) {
+      overlayTranslationCacheWrites.delete(videoId);
+    }
+  }
+}
+
 async function handleTranslateOverlayBatch(videoId, segmentIds) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
   const cacheKey = `digest_${videoId}`;
@@ -1184,14 +1214,14 @@ async function handleTranslateOverlayBatch(videoId, segmentIds) {
   if (!translations.size) {
     return { success: false, error: "Translation returned no subtitle text." };
   }
-  cached.paragraphCache = { ...(cached.paragraphCache || {}) };
+  const cacheUpdates = {};
   requested.forEach((segment) => {
     const translation = translations.get(segment.id);
     if (translation) {
-      cached.paragraphCache[ReadnoteTranscript.translationKey(videoId, segment)] = translation;
+      cacheUpdates[ReadnoteTranscript.translationKey(videoId, segment)] = translation;
     }
   });
-  await chrome.storage.local.set({ [cacheKey]: cached });
+  await mergeOverlayTranslationsIntoCache(videoId, cacheUpdates);
   return {
     success: true,
     translations: requested
@@ -1934,6 +1964,7 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   validateTranscriptBatchRequest,
   normalizeTranslatedSegmentBatch,
   handleTranslateLiveSubtitle,
+  mergeOverlayTranslationsIntoCache,
   handleSaveNote,
   handleTranslateContent,
   closePanelForTab,

@@ -75,6 +75,33 @@ test("the active subtitle is translated first, then future captions prefetch", (
   );
 });
 
+test("plans several forward translation batches around any playback position", () => {
+  const segments = Array.from({ length: 80 }, (_, index) => ({
+    id: `segment-${index}`,
+    start: index * 5,
+    text: `Caption ${index}`,
+    translation: index === 26 ? "已有译文" : "",
+  }));
+  const pending = new Set(["segment-23", "segment-28"]);
+
+  const plan = transcript.planTranslationWindow(segments, 22, pending, {
+    windowSize: 96,
+    windowSeconds: 180,
+    batchSize: 6,
+    batchCount: 3,
+  });
+
+  assert.deepEqual(plan.active.map((item) => item.id), ["segment-22"]);
+  assert.deepEqual(
+    plan.batches.map((batch) => batch.map((item) => item.id)),
+    [
+      ["segment-24", "segment-25", "segment-27", "segment-29", "segment-30", "segment-31"],
+      ["segment-32", "segment-33", "segment-34", "segment-35", "segment-36", "segment-37"],
+      ["segment-38", "segment-39", "segment-40", "segment-41", "segment-42", "segment-43"],
+    ],
+  );
+});
+
 test("persists only the 50 most recent bilingual display choices", async () => {
   const data = {};
   const storage = {

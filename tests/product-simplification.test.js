@@ -42,7 +42,12 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   const content = read("content.js");
   const background = read("background.js");
   assert.match(content, /action: "translateOverlayBatch"/);
-  assert.match(content, /SUBTITLE_PREFETCH_COUNT/);
+  assert.match(content, /SUBTITLE_PREFETCH_BATCH_SIZE = 6/);
+  assert.match(content, /SUBTITLE_PREFETCH_WINDOW = 96/);
+  assert.match(content, /SUBTITLE_PREFETCH_SECONDS = 180/);
+  assert.match(content, /MAX_SUBTITLE_PREFETCH_REQUESTS = 3/);
+  assert.match(content, /scheduleReadnoteSubtitlePrefetch/);
+  assert.match(content, /requestReadnoteActiveTranslation/);
   assert.match(background, /handleTranslateOverlayBatch/);
   assert.match(content, /data-style-action="font"/);
   assert.match(content, /data-style-action="smaller"/);
@@ -57,9 +62,8 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /--rn-subtitle-x/);
   assert.match(content, /--rn-subtitle-width/);
   assert.match(content, /data-resize-handle/);
-  assert.match(content, /SUBTITLE_PREFETCH_WINDOW = 48/);
-  assert.match(content, /MAX_SUBTITLE_TRANSLATION_REQUESTS = 2/);
-  assert.match(content, /ReadnoteTranscript\.translationCandidates/);
+  assert.match(content, /readnoteSubtitleTranslationGeneration/);
+  assert.match(content, /ReadnoteTranscript\.planTranslationWindow/);
   assert.match(content, /readnote_subtitle_style_v5/);
   assert.match(content, /width:\s*"auto"/);
   assert.match(content, /width:var\(--rn-subtitle-width,max-content\)/);
@@ -70,7 +74,7 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /\.rn-subtitle-resize \{[^}]*width:24px/);
   assert.match(content, /startLeftPercent/);
   assert.match(content, /pointerPercent - interaction\.startLeftPercent/);
-  assert.match(content, /readnoteSubtitleTranslationRequests\.has\(activeSegment\.id\)/);
+  assert.match(content, /readnoteSubtitleUrgentRequests\.has\(segment\.id\)/);
   assert.match(content, /\.rn-subtitle-zh \{[^}]*#fff7dc/);
   assert.match(background, /idleTimeoutMs:\s*8_000/);
   assert.match(background, /hardTimeoutMs:\s*15_000/);

@@ -141,6 +141,7 @@ function loadBackgroundHelpers({
   };
   sandbox.globalThis = sandbox;
   vm.runInNewContext(read("background.js"), sandbox);
+  sandbox.__YTD_TRANSLATION_TESTING__.__storage = localStorage;
   return sandbox.__YTD_TRANSLATION_TESTING__;
 }
 
@@ -749,6 +750,24 @@ test("live player subtitles use the low-latency plain-text translation path", as
   assert.equal(requests[0].max_tokens, 320);
   assert.equal(Object.hasOwn(requests[0], "response_format"), false);
   assert.match(requests[0].messages[0].content, /live subtitle/i);
+});
+
+test("concurrent subtitle batches merge cache writes without losing translations", async () => {
+  const helpers = loadBackgroundHelpers();
+  helpers.__storage.digest_video123 = {
+    transcript: [{ start: 0, duration: 2, text: "Hello." }],
+    paragraphCache: { existing: "保留" },
+  };
+
+  await Promise.all([
+    helpers.mergeOverlayTranslationsIntoCache("video123", { first: "第一条" }),
+    helpers.mergeOverlayTranslationsIntoCache("video123", { second: "第二条" }),
+  ]);
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(helpers.__storage.digest_video123.paragraphCache)),
+    { existing: "保留", first: "第一条", second: "第二条" },
+  );
 });
 
 test("interface batches use the dedicated saved Notes translation prompt", async () => {

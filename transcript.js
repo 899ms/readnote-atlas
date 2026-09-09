@@ -156,6 +156,46 @@ var ReadnoteTranscript = (() => {
     return eligible.slice(0, batchSize);
   }
 
+  /**
+   * Builds two independent translation lanes around the playback head:
+   * one urgent visible subtitle and several forward-looking batches. Keeping
+   * this pure makes seek reprioritisation deterministic and easy to test.
+   */
+  function planTranslationWindow(
+    segments,
+    startIndex,
+    pendingIds,
+    { windowSize = 96, windowSeconds = 180, batchSize = 6, batchCount = 3 } = {},
+  ) {
+    if (!Array.isArray(segments) || !segments.length) {
+      return { active: [], batches: [] };
+    }
+    const start = Math.max(0, Math.min(segments.length - 1, Number(startIndex) || 0));
+    const pending = pendingIds instanceof Set ? pendingIds : new Set();
+    const activeSegment = segments[start];
+    const active = activeSegment?.id && !activeSegment.translation
+      ? [activeSegment]
+      : [];
+    const activeStart = Number(activeSegment?.start);
+    const future = segments
+      .slice(start + 1, start + 1 + windowSize)
+      .filter(
+        (segment) =>
+          segment?.id &&
+          !segment.translation &&
+          !pending.has(segment.id) &&
+          (!Number.isFinite(activeStart) ||
+            !Number.isFinite(Number(segment.start)) ||
+            Number(segment.start) - activeStart <= windowSeconds),
+      );
+    const batches = [];
+    const maximum = Math.max(0, batchSize * batchCount);
+    for (let index = 0; index < Math.min(future.length, maximum); index += batchSize) {
+      batches.push(future.slice(index, index + batchSize));
+    }
+    return { active, batches };
+  }
+
   function isDisplayMode(value) {
     return DISPLAY_MODES.includes(value);
   }
@@ -200,6 +240,7 @@ var ReadnoteTranscript = (() => {
     activeSegment,
     wrapSubtitle,
     translationCandidates,
+    planTranslationWindow,
     textFingerprint,
     translationKey,
   };
