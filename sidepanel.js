@@ -1,7 +1,7 @@
 /**
  * SIDE PANEL LOGIC
  *
- * Handles the UI for Readnote Studio: video detection, transcript analysis,
+ * Handles the UI for Readnote Atlas: video detection, transcript analysis,
  * rendering results, and export features.
  */
 
@@ -489,7 +489,7 @@ async function checkCurrentTab() {
     });
     const tab = tabs[0] || null;
 
-    debugLog("[Readnote Studio Panel] Found tab:", tab?.id, tab?.url);
+    debugLog("[Readnote Atlas Panel] Found tab:", tab?.id, tab?.url);
 
     if (!tab?.url) {
       showState("welcome");
@@ -515,7 +515,7 @@ async function checkCurrentTab() {
           action: "relayToContent",
           payload: { action: "getVideoInfo" },
         });
-        debugLog("[Readnote Studio Panel] getVideoInfo result:", result);
+        debugLog("[Readnote Atlas Panel] getVideoInfo result:", result);
         if (result.success && result.response) {
           currentVideoTitle = result.response.title || "";
           currentChannelName = result.response.channelName || "";
@@ -523,7 +523,7 @@ async function checkCurrentTab() {
           currentVideoDuration = result.response.duration || 0;
         }
       } catch (e) {
-        console.error("[Readnote Studio Panel] getVideoInfo error:", e);
+        console.error("[Readnote Atlas Panel] getVideoInfo error:", e);
         currentVideoTitle = "";
         currentChannelName = "";
         currentVideoDescription = "";
@@ -677,7 +677,7 @@ async function startDigest(videoId, videoUrl) {
     if (transcriptResult.error === "NO_SUPADATA_KEY") {
       showError(
         "API key missing",
-        "Add your Supadata API key in Readnote Studio Settings.",
+        "Add your Supadata API key in Readnote Atlas Settings.",
       );
       return;
     }
@@ -794,7 +794,7 @@ async function translateInterfaceSegments(surface, segments, rerender) {
           videoTitle: currentVideoTitle,
         });
       } catch (error) {
-        console.error("[Readnote Studio] Interface batch error:", error);
+        console.error("[Readnote Atlas] Interface batch error:", error);
         result = { success: false, error: error.message };
       }
       if (
@@ -821,7 +821,7 @@ async function translateInterfaceSegments(surface, segments, rerender) {
       await updateCache();
     }
   } catch (error) {
-    console.error("[Readnote Studio] Interface translation error:", error);
+    console.error("[Readnote Atlas] Interface translation error:", error);
     missing.forEach((segment) =>
       interfaceTranslationFailures.add(segment.cacheKey),
     );
@@ -1227,7 +1227,7 @@ function exportTranscript() {
 
   exportText += `TRANSCRIPT:\n\n${transcriptContent}\n`;
   exportText += `\n${"—".repeat(60)}\n`;
-  exportText += `Exported by Readnote Studio\n`;
+  exportText += `Exported by Readnote Atlas\n`;
 
   const filename = `${sanitizeFilename(currentVideoTitle)}-transcript.txt`;
   downloadTextFile(exportText, filename);
@@ -1284,7 +1284,7 @@ function showConfigError(configStatus) {
   showState("error");
   document.getElementById("errorTitle").textContent = "API Keys Missing";
   document.getElementById("errorMessage").textContent =
-    `Add your ${missingKeys.join(" and ")} API key${missingKeys.length === 1 ? "" : "s"} in Readnote Studio Settings.`;
+    `Add your ${missingKeys.join(" and ")} API key${missingKeys.length === 1 ? "" : "s"} in Readnote Atlas Settings.`;
   document.getElementById("errorBtn").textContent = "Open Settings";
   errorAction = () => chrome.runtime.sendMessage({ action: "openOptions" });
 }
@@ -1392,7 +1392,7 @@ async function triggerAnalysis() {
     // Save to cache now that we have analysis
     await saveToCache(currentVideoId);
   } catch (error) {
-    console.error("[Readnote Studio Panel] Analysis error:", error);
+    console.error("[Readnote Atlas Panel] Analysis error:", error);
     if (overview)
       overview.innerHTML = `<p class="overview-error">错误：${escapeHtml(error.message)}</p>`;
   }
@@ -1405,9 +1405,9 @@ async function triggerAnalysis() {
 // ============================================================
 
 async function seekTo(seconds) {
-  debugLog("[Readnote Studio Panel] seekTo called with:", seconds);
+  debugLog("[Readnote Atlas Panel] seekTo called with:", seconds);
   if (seconds === undefined || seconds === null) {
-    debugLog("[Readnote Studio Panel] seekTo aborted - no seconds value");
+    debugLog("[Readnote Atlas Panel] seekTo aborted - no seconds value");
     return;
   }
 
@@ -1421,11 +1421,11 @@ async function seekTo(seconds) {
     if (youtubeTabId) {
       try {
         await chrome.tabs.sendMessage(youtubeTabId, payload);
-        debugLog("[Readnote Studio Panel] seekTo direct success");
+        debugLog("[Readnote Atlas Panel] seekTo direct success");
         return;
       } catch (directErr) {
         debugLog(
-          "[Readnote Studio Panel] Direct seekTo failed, falling back to relay:",
+          "[Readnote Atlas Panel] Direct seekTo failed, falling back to relay:",
           directErr.message,
         );
       }
@@ -1436,9 +1436,9 @@ async function seekTo(seconds) {
       action: "relayToContent",
       payload,
     });
-    debugLog("[Readnote Studio Panel] seekTo relay result:", result);
+    debugLog("[Readnote Atlas Panel] seekTo relay result:", result);
   } catch (error) {
-    console.error("[Readnote Studio Panel] seekTo error:", error);
+    console.error("[Readnote Atlas Panel] seekTo error:", error);
   }
 }
 
@@ -1720,7 +1720,7 @@ function setupExplainFeature() {
           button.disabled = false;
         }, 900);
       } catch (error) {
-        console.error("[Readnote Studio] Save selected note error:", error);
+        console.error("[Readnote Atlas] Save selected note error:", error);
         button.textContent = "Error";
         setTimeout(() => {
           button.textContent = originalText;
@@ -1899,7 +1899,7 @@ async function evictOldCacheEntries(maxEntries) {
       .map((e) => e.key);
     if (toRemove.length > 0) {
       await chrome.storage.local.remove(toRemove);
-      debugLog(`[Readnote Studio] Evicted ${toRemove.length} old cache entries`);
+      debugLog(`[Readnote Atlas] Evicted ${toRemove.length} old cache entries`);
     }
   } catch (error) {
     console.error("Cache eviction error:", error);
@@ -1963,7 +1963,7 @@ async function loadNotes(videoId) {
       renderNotes(result.notes, videoId);
     }
   } catch (error) {
-    console.error("[Readnote Studio Panel] Load notes error:", error);
+    console.error("[Readnote Atlas Panel] Load notes error:", error);
   }
 }
 
@@ -2117,7 +2117,7 @@ async function deleteNote(noteId) {
       noteId: noteId,
     });
   } catch (error) {
-    console.error("[Readnote Studio Panel] Delete note error:", error);
+    console.error("[Readnote Atlas Panel] Delete note error:", error);
   }
 }
 
@@ -2297,7 +2297,7 @@ async function loadTranscriptViewState(videoId) {
     if (!Number.isFinite(scrollTop) || scrollTop < 0) return null;
     return { videoId, scrollTop };
   } catch (error) {
-    console.error("[Readnote Studio] Reading position load error:", error);
+    console.error("[Readnote Atlas] Reading position load error:", error);
     return null;
   }
 }
@@ -2321,7 +2321,7 @@ async function saveTranscriptViewState(videoId, scrollTop) {
     );
     await storage.set({ [TRANSCRIPT_VIEW_STATE_KEY]: recentStates });
   } catch (error) {
-    console.error("[Readnote Studio] Reading position save error:", error);
+    console.error("[Readnote Atlas] Reading position save error:", error);
   }
 }
 

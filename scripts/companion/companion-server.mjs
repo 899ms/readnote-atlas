@@ -49,12 +49,12 @@ function ensureNotebook() {
       notebookPath,
       [
         "---",
-        "title: Readnote Studio",
+        "title: Readnote Atlas",
         "tags:",
         "  - reading/notebook",
         "---",
         "",
-        "# Readnote Studio",
+        "# Readnote Atlas",
         "",
         "## Inbox",
         ""
@@ -208,5 +208,5 @@ createServer((request, response) => {
   response.writeHead(404, { "content-type": "application/json" });
   response.end(JSON.stringify({ error: "not_found" }));
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Readnote Studio companion listening at http://127.0.0.1:${port}`);
+  console.log(`Readnote Atlas companion listening at http://127.0.0.1:${port}`);
 });

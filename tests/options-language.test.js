@@ -30,8 +30,8 @@ function createLocalStorage() {
 }
 
 test("Settings copy covers English and Simplified Chinese", () => {
-  assert.equal(options.translate("en", "pageTitle"), "Readnote Studio Settings");
-  assert.equal(options.translate("zh-CN", "pageTitle"), "Readnote Studio 设置");
+  assert.equal(options.translate("en", "pageTitle"), "Readnote Atlas Settings");
+  assert.equal(options.translate("zh-CN", "pageTitle"), "Readnote Atlas 设置");
   assert.equal(options.translate("en", "saveSettings"), "Save settings");
   assert.equal(options.translate("zh-CN", "saveSettings"), "保存设置");
   assert.equal(

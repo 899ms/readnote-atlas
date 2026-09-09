@@ -12,7 +12,7 @@ test("manifest exposes the unified article and video product", () => {
   const [youtubeLayer, articleLayer] = manifest.content_scripts;
 
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.name, "Readnote Studio");
+  assert.equal(manifest.name, "Readnote Atlas");
   assert.equal(manifest.version, "0.1.0");
   assert.equal(packageJson.version, manifest.version);
   assert.deepEqual(youtubeLayer.js, ["transcript.js", "content.js"]);
@@ -33,8 +33,11 @@ test("published copy states the source-first and user-owned knowledge promise", 
   assert.match(readme, /subtitle layer directly over the player/);
   assert.match(readme, /github\.com\/pheobepotato\/readnote/);
   assert.match(readme, /youtube-digest\/releases\/tag\/v1\.2\.0/);
+  assert.match(readme, /Zara Zhang/);
+  assert.match(readme, /independent project/);
+  assert.match(read("ACKNOWLEDGEMENTS.md"), /Copyright \(c\) 2026 Zara Zhang/);
   assert.match(chineseReadme, /翻译只是阅读辅助，不是终点/);
-  assert.match(chineseReadme, /播放器画面内直接显示英文与简体中文字幕/);
+  assert.match(chineseReadme, /播放器画面内居中显示英文与简体中文字幕/);
   assert.match(product, /Source → bilingual understanding → precise selection/);
 });
 

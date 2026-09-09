@@ -1,10 +1,10 @@
-# Readnote Studio Product Brief
+# Readnote Atlas Product Brief
 
 ## Product promise
 
 **Understand English in context. Keep only what becomes yours.**
 
-Readnote Studio is not a translation archive and not a generic summarizer. It is a reading layer for source material and a capture path into a user-owned knowledge base.
+Readnote Atlas is not a translation archive and not a generic summarizer. It is a reading layer for source material and a capture path into a user-owned knowledge base.
 
 ## Primary loop
 
@@ -15,7 +15,7 @@ The loop is identical for text and video. A video timestamp plays the same role 
 ## Experience principles
 
 1. **The source remains primary.** Translation appears beside or over the source, never as a disconnected replacement.
-2. **Progressive cost.** Transcript retrieval, translation, and overview generation happen only when the user reaches or requests them.
+2. **Progressive cost.** Enabling bilingual playback is an ongoing request to translate the active subtitle plus a limited window ahead of the playhead; overviews and content outside that window are generated only when the user requests or reaches them.
 3. **Precise capture before synthesis.** Notes preserve the exact excerpt, source URL, title, and timestamp before AI cleanup or commentary.
 4. **User-owned memory.** Local storage is the safety net; Obsidian and Notion are destinations chosen by the user.
 5. **Quiet interface.** The Readnote visual language uses dark ink, paper-white surfaces, restrained blue actions, and pale-yellow selection; shadows, rounding, and decoration recede while reading or watching.

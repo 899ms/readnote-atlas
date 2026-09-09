@@ -29,9 +29,9 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
 fi
 
 mkdir -p "$dist_dir"
-temporary_dir="$(mktemp -d "$dist_dir/.readnote-studio-package.XXXXXX")"
-temporary_zip="$temporary_dir/readnote-studio.zip"
-output_zip="$dist_dir/readnote-studio-v$version.zip"
+temporary_dir="$(mktemp -d "$dist_dir/.readnote-atlas-package.XXXXXX")"
+temporary_zip="$temporary_dir/readnote-atlas.zip"
+output_zip="$dist_dir/readnote-atlas-v$version.zip"
 
 cleanup() {
   if [[ -f "$temporary_zip" ]]; then

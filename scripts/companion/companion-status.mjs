@@ -7,7 +7,7 @@ function escapeHtml(value) {
 }
 
 function notebookName(path) {
-  return String(path || "Readnote Studio Notebook.md").split("/").filter(Boolean).at(-1)?.replace(/\.md$/i, "") ?? "Readnote Studio Notebook";
+  return String(path || "Readnote Atlas Notebook.md").split("/").filter(Boolean).at(-1)?.replace(/\.md$/i, "") ?? "Readnote Atlas Notebook";
 }
 
 export function isCompanionStatusPageRequest(method, pathname) {
@@ -31,7 +31,7 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23f5f5f7"/%3E%3Ccircle cx="16" cy="16" r="7" fill="%2330d158"/%3E%3C/svg%3E' />
-    <title>Readnote Studio Companion</title>
+    <title>Readnote Atlas Companion</title>
     <style>
       :root {
         color-scheme: light;
@@ -165,7 +165,7 @@ export function renderCompanionStatusPage({ status, notionPageId, obsidianNotebo
   <body>
     <main>
       <header>
-        <h1>Readnote Studio Companion</h1>
+        <h1>Readnote Atlas Companion</h1>
         <div class="status"><span class="dot"></span>Running</div>
       </header>
       <dl>
@@ -210,7 +210,7 @@ export function renderSetupPage({ settings, saved = false }) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Readnote Studio Setup</title>
+    <title>Readnote Atlas Setup</title>
     <style>
       :root {
         color-scheme: light;
@@ -310,7 +310,7 @@ export function renderSetupPage({ settings, saved = false }) {
   <body>
     <main>
       <header>
-        <h1>Readnote Studio Setup</h1>
+        <h1>Readnote Atlas Setup</h1>
         <p>Configure your local profile, model provider, Obsidian notebook, and Notion page. Secrets stay in local .env.local.</p>
       </header>
       ${saved ? '<p class="notice">Saved. Restart the companion if you changed provider credentials.</p>' : ""}
@@ -342,7 +342,7 @@ export function renderSetupPage({ settings, saved = false }) {
         <section>
           <h2>Obsidian</h2>
           <label>Markdown notebook path
-            <input name="obsidianPath" value="${escapeHtml(settings.obsidianPath)}" placeholder="/Users/you/Documents/Obsidian/Readnote Studio.md" />
+            <input name="obsidianPath" value="${escapeHtml(settings.obsidianPath)}" placeholder="/Users/you/Documents/Obsidian/Readnote Atlas.md" />
           </label>
         </section>
         <section>

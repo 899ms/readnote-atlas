@@ -130,7 +130,7 @@ function tryInjectNoteButton() {
 
     if (attempts >= maxAttempts) {
       debugLog(
-        "[Readnote Studio Content] Player container not found after retries, giving up",
+        "[Readnote Atlas Content] Player container not found after retries, giving up",
       );
       if (ytdNoteButtonRetryTimer) {
         clearInterval(ytdNoteButtonRetryTimer);
@@ -161,12 +161,12 @@ if (document.readyState === "loading") {
  * When they ask for video info, we read it from the page.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  debugLog("[Readnote Studio Content] Received message:", message.action, message);
+  debugLog("[Readnote Atlas Content] Received message:", message.action, message);
 
   if (message.action === "getVideoInfo") {
     // Read video title and channel name from the page
     const info = extractVideoInfo();
-    debugLog("[Readnote Studio Content] Returning video info:", info);
+    debugLog("[Readnote Atlas Content] Returning video info:", info);
     sendResponse(info);
     return false; // Synchronous response
   }
@@ -183,7 +183,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "seekTo") {
     // Jump the video to a specific timestamp
-    debugLog("[Readnote Studio Content] Seeking to:", message.seconds);
+    debugLog("[Readnote Atlas Content] Seeking to:", message.seconds);
     seekToTimestamp(message.seconds);
     sendResponse({ success: true });
     return false;
@@ -222,7 +222,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Unknown action - still send a response to prevent hanging
-  debugLog("[Readnote Studio Content] Unknown action:", message.action);
+  debugLog("[Readnote Atlas Content] Unknown action:", message.action);
   sendResponse({ success: false, error: "Unknown action" });
   return false;
 });
@@ -235,7 +235,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Injects a "Digest" button into YouTube's action bar.
  * The button appears next to Share, Save, etc. below the video.
  *
- * When clicked, it opens the Readnote Studio side panel.
+ * When clicked, it opens the Readnote Atlas side panel.
  */
 function isVisibleDigestHost(element) {
   if (!element || !element.isConnected) return false;
@@ -289,7 +289,7 @@ function createDigestButton() {
   const digestButton = document.createElement("button");
   digestButton.id = "ytd-digest-button";
   digestButton.type = "button";
-  digestButton.setAttribute("aria-label", "Open Readnote Studio");
+  digestButton.setAttribute("aria-label", "Open Readnote Atlas");
   digestButton.innerHTML = `<span class="ytd-digest-label">Readnote</span>`;
 
   // Compact Readnote action, sized to sit with YouTube's native controls.
@@ -333,16 +333,16 @@ function createDigestButton() {
     e.preventDefault();
     e.stopPropagation();
 
-    debugLog("[Readnote Studio] Digest button clicked");
+    debugLog("[Readnote Atlas] Digest button clicked");
 
     // Send message to background script to open side panel
     try {
       const result = await chrome.runtime.sendMessage({
         action: "openSidePanel",
       });
-      debugLog("[Readnote Studio] openSidePanel response:", result);
+      debugLog("[Readnote Atlas] openSidePanel response:", result);
     } catch (err) {
-      console.error("[Readnote Studio] Failed to open side panel:", err);
+      console.error("[Readnote Atlas] Failed to open side panel:", err);
     }
   });
 
@@ -368,7 +368,7 @@ function injectDigestButton() {
 
   const actionsContainer = findDigestButtonHost();
   if (!actionsContainer) {
-    debugLog("[Readnote Studio Content] Visible actions container not found yet");
+    debugLog("[Readnote Atlas Content] Visible actions container not found yet");
     return false;
   }
 
@@ -394,7 +394,7 @@ function injectDigestButton() {
     actionsContainer.insertBefore(digestButton, actionsContainer.firstChild);
   }
 
-  debugLog("[Readnote Studio Content] Digest button reconciled");
+  debugLog("[Readnote Atlas Content] Digest button reconciled");
   return true;
 }
 
@@ -1025,7 +1025,7 @@ function injectNoteButton() {
 
   if (!playerContainer) {
     debugLog(
-      "[Readnote Studio Content] Player container not found yet, will retry",
+      "[Readnote Atlas Content] Player container not found yet, will retry",
     );
     return;
   }
@@ -1038,7 +1038,7 @@ function injectNoteButton() {
     playerContainer.style.position = "relative";
   }
 
-  debugLog("[Readnote Studio Content] Injecting note button");
+  debugLog("[Readnote Atlas Content] Injecting note button");
 
   // Create the note button — a soft rounded pill that floats over the player
   const noteButton = document.createElement("button");
@@ -1118,7 +1118,7 @@ function injectNoteButton() {
 
   playerContainer.appendChild(noteButton);
 
-  debugLog("[Readnote Studio Content] Note button injected");
+  debugLog("[Readnote Atlas Content] Note button injected");
 }
 
 function showNoteButton() {
@@ -1174,11 +1174,11 @@ function handleNoteKeyboardShortcut(e) {
  * Captures the current timestamp and saves it as a note.
  */
 async function saveCurrentNote() {
-  debugLog("[Readnote Studio] Saving note");
+  debugLog("[Readnote Atlas] Saving note");
 
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[Readnote Studio] No video element found");
+    console.error("[Readnote Atlas] No video element found");
     return;
   }
 
@@ -1217,14 +1217,14 @@ async function saveCurrentNote() {
         noteButton.innerHTML =
           '<span style="letter-spacing: 0.2px;">ERROR</span>';
       }
-      console.error("[Readnote Studio] Save note error:", result.error);
+      console.error("[Readnote Atlas] Save note error:", result.error);
     }
   } catch (err) {
     if (noteButton) {
       noteButton.innerHTML =
         '<span style="letter-spacing: 0.2px;">ERROR</span>';
     }
-    console.error("[Readnote Studio] Save note exception:", err);
+    console.error("[Readnote Atlas] Save note exception:", err);
   }
 
   setTimeout(() => {
@@ -1352,11 +1352,11 @@ function extractVideoInfo() {
 function seekToTimestamp(seconds) {
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[Readnote Studio Content] No video element found for seek");
+    console.error("[Readnote Atlas Content] No video element found for seek");
     return;
   }
 
-  debugLog("[Readnote Studio Content] Seeking to:", seconds);
+  debugLog("[Readnote Atlas Content] Seeking to:", seconds);
   video.currentTime = seconds;
   // Also play the video if it's paused
   if (video.paused) {

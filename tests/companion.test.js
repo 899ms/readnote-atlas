@@ -14,7 +14,7 @@ const excerpt = {
 
 test("companion groups repeated notes below one dated source", async () => {
   const { appendExcerpt } = await import("../scripts/companion/companion-notebook.mjs");
-  const first = appendExcerpt("# Readnote Studio\n", excerpt);
+  const first = appendExcerpt("# Readnote Atlas\n", excerpt);
   const second = appendExcerpt(first, {
     ...excerpt,
     id: "note_2",

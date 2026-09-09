@@ -53,7 +53,7 @@ export function normalizeSetupSettings(input) {
 export function envTextForSettings(settings) {
   const normalized = normalizeSetupSettings(settings);
   return [
-    "# Readnote Studio local configuration. Do not commit this file.",
+    "# Readnote Atlas local configuration. Do not commit this file.",
     `READNOTE_PROFILE_NAME=${normalized.profileName}`,
     "",
     `READNOTE_TRANSLATION_PROVIDER=${normalized.translationProvider}`,

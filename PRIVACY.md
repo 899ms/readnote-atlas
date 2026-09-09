@@ -2,7 +2,7 @@
 
 Effective: September 8, 2026
 
-Readnote Studio is a local-first, bring-your-own-key Chrome extension. It has no Readnote Studio account, developer-operated cloud backend, analytics, advertising, or telemetry.
+Readnote Atlas is a local-first, bring-your-own-key Chrome extension. It has no Readnote Atlas account, developer-operated cloud backend, analytics, advertising, or telemetry.
 
 ## Data handled locally
 

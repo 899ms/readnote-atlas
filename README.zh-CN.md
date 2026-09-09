@@ -1,57 +1,81 @@
-# Readnote Studio
+# Readnote Atlas
 
 [English](README.md)
 
-在不离开原始语境的前提下阅读英文。Readnote Studio 是一个 local-first 的 Chrome 扩展，把英文文章和 YouTube 视频变成双语阅读界面，再把真正值得保留的内容沉淀到你自己的 Obsidian 或 Notion 知识库。
+**读懂英文世界，从文本到视频。**
 
-## 产品理念
+Readnote Atlas 是一个面向中文母语读者的 local-first Chrome 扩展。它让英文文章和视频始终保留在原始语境中，在真正需要的地方提供中英双语辅助，并把你主动选择的内容沉淀到自己的 Obsidian 或 Notion 知识库。
 
-翻译只是阅读辅助，不是终点。原网页和原视频始终是主要阅读界面。Readnote Studio 的完整路径是：
+## 为什么做这个项目
 
-1. 留在原始内容中阅读；
-2. 只在有助于理解时加入中文；
-3. 连同上下文、时间戳和来源保存重点段落；
-4. 将内容沉淀到用户自己控制的知识库。
+英文互联网中最值得学习的内容，并不只存在于文章里。它也可能是一份技术文档、一场访谈、一堂课程，或一段长达数小时的深度对话。
 
-项目融合了 [Readnote](https://github.com/pheobepotato/readnote) 的 local-first 知识沉淀方式，以及 [YouTube Digest](https://github.com/zarazhangrui/youtube-digest/releases/tag/v1.2.0) 的字幕、双语翻译、概览和时间戳导航能力。
+这里真正的问题不只是“如何翻译”。整页中文会让原文消失，过度压缩的摘要会抹平作者的推理过程，而独立的笔记工具又常常切断观点与原始语境之间的联系。
+
+翻译只是阅读辅助，不是终点。Readnote Atlas 希望建立一条更完整的路径：
+
+`原始内容 → 双语理解 → 精确选择 → 个人笔记 → Obsidian / Notion`
+
+原文始终是主角，中英文始终彼此对照。文章中的一个段落和视频中的一个时间戳，本质上是同一种知识锚点。翻译帮助我们跨过语言边界，而笔记让理解过的内容真正成为自己的知识。
+
+由此形成五条产品原则：
+
+1. **留在原始语境中阅读。** 不为了翻译而离开文章或视频。
+2. **默认中英双语。** 中文用于辅助理解，但不取代英文原文。
+3. **文本与视频使用同一套体验。** 阅读、选择、批注和知识沉淀不因媒介变化而割裂。
+4. **速度本身就是理解体验的一部分。** 实时字幕必须跟上播放进度，也必须在用户从长视频中段开始观看时迅速接上。
+5. **知识和数据属于用户。** 内容优先保存在本地，只同步到用户主动配置的服务和知识库。
+
+更完整的产品定义见 [PRODUCT.md](PRODUCT.md)，播放器字幕的技术取舍见[实时双语字幕架构研究](docs/realtime-caption-architecture.md)。
 
 ## 已实现能力
 
-### 文章
+### 英文文章
 
 - 在原网页中渐进翻译可阅读的英文段落；
-- 选中文字后高亮、下划线、写批注或保存摘录；
+- 选中文字后直接高亮、下划线、写批注或保存摘录；
 - 再次打开同一 URL 时恢复标注；
 - 将摘录追加到一个 Obsidian Markdown 笔记，并可选同步到 Notion。
 
 ### YouTube 视频
 
-- 在播放器画面内直接显示英文与简体中文字幕；
-- 只用 `On` / `Off` 控制中英双语字幕，无纯英文或纯中文模式；
-- 展开播放器左上角的小型 `Aa` 入口，可调整字幕字体、字号和垂直位置；选择后控制条会自动收起；
-- 在 Chrome 侧边栏阅读完整的带时间戳 transcript；
-- 搜索 transcript，并在所有匹配项之间移动；
-- 点击 transcript 或笔记跳转到对应时间；
+- 在播放器画面内居中显示英文与简体中文字幕；
+- 只用一个清晰的 `On` / `Off` 开关控制中英双语，不提供纯英文或纯中文模式；
+- 当前句采用流式翻译，并持续预翻译播放头之后的字幕；
+- 即使从长视频中段开始观看或频繁拖动进度条，也会优先追上当前字幕；
+- 字幕区域可以移动和平滑缩放，改变宽度时文字会自然重排；
+- 通过小型、可收起的 `Aa` 控件调整字体、字号和垂直位置；
+- 在 Chrome 侧边栏阅读和搜索完整的带时间戳 transcript；
+- 点击 transcript 或笔记，精确跳转到对应时间；
 - 选择 transcript 段落后进行解释，或保存为带时间戳的笔记；
 - 按需生成一篇覆盖完整讨论内容的中文综述；
-- 笔记先保存在本地，再自动同步到 Obsidian 和/或 Notion，并显示同步状态。
+- 笔记先保存在本地，再同步到 Obsidian 和/或 Notion。
 
 ## 本地安装与开发
 
-需要 Chrome 116+、Node.js 20+、用于获取 YouTube transcript 的 Supadata Key，以及用于视频翻译和 AI 功能的 DeepSeek Key。
+需要 Chrome 116+、Node.js 22.19+、用于获取 YouTube transcript 的 Supadata API Key，以及用于视频翻译和 AI 功能的 DeepSeek API Key。
 
 ```bash
+git clone https://github.com/pheobepotato/readnote-atlas.git
+cd readnote-atlas
 npm install
 npm run build
 npm test
 npm run check
 ```
 
-然后打开 `chrome://extensions`，开启“开发者模式”，点击“加载已解压的扩展程序”，选择当前项目文件夹。进入扩展的 Settings 页面，由你自己填写 Supadata 和 DeepSeek Key。不要把 Key 放进源代码、GitHub、截图或聊天。
+然后：
+
+1. 打开 `chrome://extensions`；
+2. 开启“开发者模式”；
+3. 点击“加载已解压的扩展程序”，选择仓库文件夹；
+4. 进入 **Readnote Atlas Settings**，自行填写 Supadata 和 DeepSeek Key。
+
+请勿把 API Key 放进源代码、GitHub、截图或聊天记录。
 
 ## 个人知识库
 
-启动本地 companion：
+启动可选的本地 companion：
 
 ```bash
 npm run companion
@@ -63,26 +87,35 @@ npm run companion
 - 可选的 Notion integration token 和目标 page id；
 - 用于文章翻译的服务与 API Key。
 
-Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录与视频时间戳笔记使用同一套来源结构，因此知识库是一条连续的阅读记录，而不是零散的导出文件。
+Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录与视频时间戳笔记使用同一套来源结构，因此知识库会成为一条连续的学习记录，而不是零散的导出文件夹。
 
-## 数据流向
+## 隐私与数据流向
 
-- 文章标注、翻译缓存、视频 transcript、笔记和摘要缓存在 Chrome 本地；
-- 文章翻译和知识库同步请求只发送到 `127.0.0.1:8791` 的本地 companion；
+- 文章标注、翻译缓存、视频 transcript、笔记和综述保存在 Chrome 本地；
+- 文章翻译和知识库同步请求通过 `127.0.0.1:8791` 的本地 companion 完成；
 - Companion 只写入你配置的 Markdown 文件和 Notion 页面；
 - 获取视频 transcript 时，Supadata 只收到标准化后的 YouTube URL；
-- DeepSeek 只收到当前视频功能所需的 transcript 内容；
-- 没有 Readnote Studio 账号、分析 SDK、广告或开发者运营的云端服务。
+- DeepSeek 只收到当前翻译或 AI 功能所需的内容；
+- 没有 Readnote Atlas 账号、分析 SDK、广告或开发者运营的云端服务。
 
 完整说明见 [PRIVACY.md](PRIVACY.md)。
 
 ## 当前边界
 
-- 暂不支持 Shorts、直播、私密视频以及没有原生字幕的视频；
+- 暂不支持 YouTube Shorts、直播、私密视频以及没有原生字幕的视频；
 - 播放器字幕会自动获取并缓存原生字幕，无需先打开侧边栏；
 - 视频能力当前使用 Supadata 和 DeepSeek；文章翻译可通过 companion 使用 DeepSeek、OpenAI 或 MiniMax；
 - 第一版仅支持 Chrome。
 
-## License 与致谢
+## 项目来源与致谢
 
-MIT。视频工作流的大量基础代码来自 Zara Zhang 的 YouTube Digest，版权声明保留在 [LICENSE](LICENSE) 中。
+Readnote Atlas 是在两个项目基础上完成的独立设计：
+
+- [Readnote](https://github.com/pheobepotato/readnote) 由本项目作者创建，它确立了“原始内容优先”的阅读理念、本地批注方式，以及向 Obsidian / Notion 沉淀个人知识的工作流。
+- [YouTube Digest v1.2.0](https://github.com/zarazhangrui/youtube-digest/releases/tag/v1.2.0) 由 **Zara Zhang** 创建。它为 transcript 获取、双语视频阅读、时间戳导航、内容解释和视频笔记提供了开源基础与重要灵感。本项目的视频工作流部分代码基于其 MIT License 衍生，并在产品结构、播放器字幕、实时翻译调度和知识库整合等方面进行了重新设计。
+
+Readnote Atlas 是一个独立项目，不是 YouTube Digest 或 Zara Zhang 的官方版本，也不代表原作者对本项目的认可或背书。我们真诚感谢 Zara Zhang 的开源工作，它让这次探索成为可能。原作者版权声明已完整保留在 [LICENSE](LICENSE) 中，两个项目之间的关系也记录在 [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)。
+
+## 开源许可
+
+[MIT License](LICENSE)，欢迎参与贡献。

@@ -106,7 +106,7 @@ async function requestAiCompletion({
   const settings = await getSettings();
   if (!settings.aiApiKey) {
     const error = new Error(
-      "DeepSeek API key not configured. Open Readnote Studio Settings.",
+      "DeepSeek API key not configured. Open Readnote Atlas Settings.",
     );
     error.code = "NO_AI_KEY";
     throw error;
@@ -349,7 +349,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
  * Keep the side panel scoped to YouTube tabs only.
  *
  * Chrome side panels are "global" by default: once opened, the panel follows
- * you to every tab. To make Readnote Studio behave like a YouTube-only tool, we
+ * you to every tab. To make Readnote Atlas behave like a YouTube-only tool, we
  * enable the panel on YouTube tabs and disable it everywhere else. Disabling
  * on a tab makes Chrome hide/close the panel for that tab, so it never lingers
  * on a new tab or some other website.
@@ -366,7 +366,7 @@ async function closePanelForTab(tabId, windowId) {
   if (typeof chrome.sidePanel.close !== "function") return;
 
   try {
-    // This closes the tab-specific panel used by Readnote Studio.
+    // This closes the tab-specific panel used by Readnote Atlas.
     await chrome.sidePanel.close({ tabId });
     return;
   } catch (error) {
@@ -604,7 +604,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "openSidePanel") {
     const tabId = sender.tab?.id;
-    debugLog("[Readnote Studio BG] openSidePanel requested from tab:", tabId);
+    debugLog("[Readnote Atlas BG] openSidePanel requested from tab:", tabId);
 
     // Re-enable the panel (it may have been disabled by auto-close) and open it.
     // IMPORTANT: we call setOptions + open synchronously (no await between them)
@@ -627,7 +627,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }, 300);
         })
         .catch((err) => {
-          console.error("[Readnote Studio BG] openSidePanel error:", err);
+          console.error("[Readnote Atlas BG] openSidePanel error:", err);
         });
     } else {
       // Fallback: find the active tab
@@ -642,7 +642,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
             chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
               console.error(
-                "[Readnote Studio BG] openSidePanel fallback error:",
+                "[Readnote Atlas BG] openSidePanel fallback error:",
                 err,
               );
             });
@@ -656,7 +656,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Relay messages from side panel to content script
   if (message.action === "relayToContent") {
-    debugLog("[Readnote Studio BG] Relay request:", message.payload?.action);
+    debugLog("[Readnote Atlas BG] Relay request:", message.payload?.action);
     (async () => {
       try {
         // Query specifically for YouTube tabs to avoid side panel context issues
@@ -666,7 +666,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           lastFocusedWindow: true,
         });
         debugLog(
-          "[Readnote Studio BG] Active tab in last focused window:",
+          "[Readnote Atlas BG] Active tab in last focused window:",
           tabs.length,
           tabs[0]?.url,
         );
@@ -677,18 +677,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             url: "https://www.youtube.com/*",
             active: true,
           });
-          debugLog("[Readnote Studio BG] Active YouTube tabs:", tabs.length);
+          debugLog("[Readnote Atlas BG] Active YouTube tabs:", tabs.length);
         }
 
         // Still nothing? Try any YouTube tab
         if (!tabs[0]) {
           tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" });
-          debugLog("[Readnote Studio BG] Any YouTube tabs:", tabs.length);
+          debugLog("[Readnote Atlas BG] Any YouTube tabs:", tabs.length);
         }
 
         if (tabs[0]) {
           debugLog(
-            "[Readnote Studio BG] Sending to tab:",
+            "[Readnote Atlas BG] Sending to tab:",
             tabs[0].id,
             "URL:",
             tabs[0].url,
@@ -720,14 +720,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           }
 
-          debugLog("[Readnote Studio BG] Got response from content:", response);
+          debugLog("[Readnote Atlas BG] Got response from content:", response);
           sendResponse({ success: true, response });
         } else {
-          debugLog("[Readnote Studio BG] No YouTube tab found");
+          debugLog("[Readnote Atlas BG] No YouTube tab found");
           sendResponse({ success: false, error: "No YouTube tab found" });
         }
       } catch (err) {
-        console.error("[Readnote Studio BG] Relay error:", err.message);
+        console.error("[Readnote Atlas BG] Relay error:", err.message);
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -769,7 +769,7 @@ async function getPlayerVideoDetails(tabId) {
     });
     return results?.[0]?.result || null;
   } catch (e) {
-    console.warn("[Readnote Studio BG] Player details unavailable:", e.message);
+    console.warn("[Readnote Atlas BG] Player details unavailable:", e.message);
     return null;
   }
 }
@@ -824,7 +824,7 @@ async function handleFetchTranscript(videoId) {
       return {
         success: false,
         error: "NO_SUPADATA_KEY",
-        message: "Supadata API key not configured. Open Readnote Studio Settings.",
+        message: "Supadata API key not configured. Open Readnote Atlas Settings.",
       };
     }
 
@@ -868,7 +868,7 @@ async function handleFetchTranscript(videoId) {
         return {
           success: false,
           error: "INVALID_SUPADATA_KEY",
-          message: "Your Supadata API key is invalid. Open Readnote Studio Settings.",
+          message: "Your Supadata API key is invalid. Open Readnote Atlas Settings.",
         };
       }
       if (response.status === 404) {
@@ -1026,7 +1026,7 @@ async function handleAnalyzeTranscript(
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "DeepSeek API key not configured. Open Readnote Studio Settings.",
+        message: "DeepSeek API key not configured. Open Readnote Atlas Settings.",
       };
     }
 
@@ -1047,7 +1047,7 @@ async function handleAnalyzeTranscript(
       promptVariables,
     );
 
-    debugLog("[Readnote Studio] Requesting video analysis", settings.aiModel);
+    debugLog("[Readnote Atlas] Requesting video analysis", settings.aiModel);
     const { text: responseText } = await requestAiCompletion({
       maxTokens: 6000,
       responseFormat: { type: "json_object" },
@@ -1440,7 +1440,7 @@ async function handleSaveNote(
 
       await saveNoteToStorage(note);
       void syncStoredNote(note).catch((error) =>
-        console.warn("[Readnote Studio] Knowledge sync failed:", error),
+        console.warn("[Readnote Atlas] Knowledge sync failed:", error),
       );
       chrome.runtime.sendMessage({ action: "noteSaved", note }).catch(() => {});
       return { success: true, note };
@@ -1455,10 +1455,10 @@ async function handleSaveNote(
       const cached = await chrome.storage.local.get(`digest_${videoId}`);
       if (cached[`digest_${videoId}`]?.transcript) {
         transcript = cached[`digest_${videoId}`].transcript;
-        debugLog("[Readnote Studio] Using cached transcript for note");
+        debugLog("[Readnote Atlas] Using cached transcript for note");
       }
     } catch (e) {
-      debugLog("[Readnote Studio] No cached transcript, fetching...");
+      debugLog("[Readnote Atlas] No cached transcript, fetching...");
     }
 
     // If no cached transcript, fetch it
@@ -1576,7 +1576,7 @@ async function handleSaveNote(
     // Save to storage
     await saveNoteToStorage(note);
     void syncStoredNote(note).catch((error) =>
-      console.warn("[Readnote Studio] Knowledge sync failed:", error),
+      console.warn("[Readnote Atlas] Knowledge sync failed:", error),
     );
 
     // Notify side panel to refresh notes list
@@ -1584,7 +1584,7 @@ async function handleSaveNote(
 
     return { success: true, note };
   } catch (error) {
-    console.error("[Readnote Studio] Save note error:", error);
+    console.error("[Readnote Atlas] Save note error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -1607,7 +1607,7 @@ async function cleanupNoteText(
   }
 
   try {
-    debugLog("[Readnote Studio] Requesting note cleanup");
+    debugLog("[Readnote Atlas] Requesting note cleanup");
     const variables = {
       videoTitle: videoTitle || "Unknown",
       fullContext,
@@ -1644,7 +1644,7 @@ async function cleanupNoteText(
       }
     } catch (parseError) {
       console.warn(
-        "[Readnote Studio] JSON parse failed for note, stripping preambles:",
+        "[Readnote Atlas] JSON parse failed for note, stripping preambles:",
         parseError,
       );
       result = result.replace(
@@ -1662,7 +1662,7 @@ async function cleanupNoteText(
 
     return result.slice(0, 3000);
   } catch (e) {
-    console.error("[Readnote Studio] Cleanup error:", e);
+    console.error("[Readnote Atlas] Cleanup error:", e);
   }
 
   // Return combined raw text if cleanup fails
@@ -1749,7 +1749,7 @@ async function handleExplainSelection(
       variables,
     );
 
-    debugLog("[Readnote Studio] Requesting selection explanation");
+    debugLog("[Readnote Atlas] Requesting selection explanation");
     const { text: explanation } = await requestAiCompletion({
       maxTokens: 1024,
       messages: [
@@ -1992,7 +1992,7 @@ async function handleTranslateContent(
     }
     return { success: true, translatedContent: aligned };
   } catch (error) {
-    console.error("[Readnote Studio] Translation error:", error);
+    console.error("[Readnote Atlas] Translation error:", error);
     return { success: false, error: error.message || "Translation failed" };
   }
 }
