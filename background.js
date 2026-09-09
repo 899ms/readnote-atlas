@@ -23,6 +23,21 @@ const debugLog = (...args) => {
   if (DEBUG) console.log(...args);
 };
 
+/**
+ * Observe an optional Promise returned by a Chrome API without assuming every
+ * supported browser (or test double) implements the Promise overload.
+ */
+function quietlyRunChromeApi(operation, label) {
+  try {
+    const result = operation();
+    if (result && typeof result.catch === "function") {
+      void result.catch((error) => debugLog(label, error));
+    }
+  } catch (error) {
+    debugLog(label, error);
+  }
+}
+
 const OVERLAY_SEGMENT_LIMITS = Object.freeze({
   minChars: 28,
   idealChars: 72,
@@ -50,7 +65,17 @@ async function sendMessageToYouTubeContent(tabId, payload) {
       target: { tabId },
       files: ["transcript.js", "library.js", "content.js"],
     });
-    return chrome.tabs.sendMessage(tabId, payload);
+    try {
+      return await chrome.tabs.sendMessage(tabId, payload);
+    } catch (retryError) {
+      // A navigation can replace the page between reinjection and retry. This
+      // is an expected transient state, not an extension error worth retaining
+      // on chrome://extensions.
+      if (isMissingContentReceiver(retryError)) {
+        throw new Error("YouTube page is still loading. Please try again.");
+      }
+      throw retryError;
+    }
   }
 }
 
@@ -329,19 +354,29 @@ chrome.action.onClicked.addListener((tab) => {
   }
 
   // Re-enable + open without awaiting — preserves user gesture context
-  chrome.sidePanel.setOptions({
-    tabId: tab.id,
-    path: "sidepanel.html",
-    enabled: true,
-  });
-  chrome.sidePanel.open({ tabId: tab.id });
+  quietlyRunChromeApi(
+    () =>
+      chrome.sidePanel.setOptions({
+        tabId: tab.id,
+        path: "sidepanel.html",
+        enabled: true,
+      }),
+    "[Readnote Atlas BG] Side panel setup unavailable:",
+  );
+  quietlyRunChromeApi(
+    () => chrome.sidePanel.open({ tabId: tab.id }),
+    "[Readnote Atlas BG] Side panel open unavailable:",
+  );
 });
 
 /**
  * The side panel belongs to video pages. On articles the action triggers
  * in-page translation instead.
  */
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+quietlyRunChromeApi(
+  () => chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }),
+  "[Readnote Atlas BG] Side panel behavior unavailable:",
+);
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === "install") chrome.runtime.openOptionsPage();
@@ -657,7 +692,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }, 300);
         })
         .catch((err) => {
-          console.error("[Readnote Atlas BG] openSidePanel error:", err);
+          debugLog("[Readnote Atlas BG] openSidePanel unavailable:", err);
         });
     } else {
       // Fallback: find the active tab
@@ -671,8 +706,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               enabled: true,
             });
             chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
-              console.error(
-                "[Readnote Atlas BG] openSidePanel fallback error:",
+              debugLog(
+                "[Readnote Atlas BG] openSidePanel fallback unavailable:",
                 err,
               );
             });
@@ -757,7 +792,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: false, error: "No YouTube tab found" });
         }
       } catch (err) {
-        console.error("[Readnote Atlas BG] Relay error:", err.message);
+        debugLog("[Readnote Atlas BG] Relay unavailable:", err.message);
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -935,7 +970,7 @@ async function handleFetchTranscript(videoId) {
 
     return { success: true, ...normalized };
   } catch (error) {
-    console.error("Transcript fetch error:", error);
+    debugLog("Transcript fetch unavailable:", error);
     return {
       success: false,
       error: error.message || "Failed to fetch transcript",
@@ -1097,7 +1132,7 @@ async function handleAnalyzeTranscript(
       analysis: analysis,
     };
   } catch (error) {
-    console.error("Analysis error:", error);
+    debugLog("Analysis unavailable:", error);
     if (error.status === 401) {
       return {
         success: false,
@@ -1707,7 +1742,7 @@ async function handleSaveNote(
 
     return { success: true, note };
   } catch (error) {
-    console.error("[Readnote Atlas] Save note error:", error);
+    debugLog("[Readnote Atlas] Save note unavailable:", error);
     return { success: false, error: error.message };
   }
 }
@@ -1812,7 +1847,7 @@ async function cleanupNoteText(
 
     return result.slice(0, 3000);
   } catch (e) {
-    console.error("[Readnote Atlas] Cleanup error:", e);
+    debugLog("[Readnote Atlas] Cleanup unavailable:", e);
   }
 
   // Return combined raw text if cleanup fails
@@ -1913,7 +1948,7 @@ async function handleExplainSelection(
       explanation: explanation.trim(),
     };
   } catch (error) {
-    console.error("Explain selection error:", error);
+    debugLog("Explain selection unavailable:", error);
     return {
       success: false,
       error: error.message || "Failed to explain selection",
@@ -2142,7 +2177,7 @@ async function handleTranslateContent(
     }
     return { success: true, translatedContent: aligned };
   } catch (error) {
-    console.error("[Readnote Atlas] Translation error:", error);
+    debugLog("[Readnote Atlas] Translation unavailable:", error);
     return { success: false, error: error.message || "Translation failed" };
   }
 }

@@ -107,9 +107,9 @@
         <!-- TAB: one comprehensive Chinese overview, generated on load -->
         <div class="tab-panel active" data-panel="overview">
           <div class="section">
-            <div class="section-title">中文内容综述</div>
+            <div class="section-title">Chinese Overview</div>
             <div class="overview-content" id="overviewContent">
-              <p class="overview-placeholder">字幕载入后会自动生成完整中文综述。</p>
+              <p class="overview-placeholder">A comprehensive Chinese overview will be generated as soon as the transcript loads.</p>
             </div>
           </div>
         </div>
@@ -137,20 +137,20 @@
               </div>
             </div>
             <form class="notes-composer" id="notesComposer">
-              <label for="quickNoteInput">写下此刻的想法</label>
+              <label for="quickNoteInput">Add a thought</label>
               <textarea
                 id="quickNoteInput"
                 rows="3"
                 maxlength="3000"
-                placeholder="一条感想、一个问题，或稍后想继续思考的线索…"
+                placeholder="Write an idea, a question, or something to revisit later…"
               ></textarea>
               <div class="notes-composer-footer">
-                <span>保存到当前播放时间</span>
+                <span>Saved at the current playback time</span>
                 <button class="enhance-btn notes-save-btn" id="quickNoteSaveBtn" type="submit">Save note</button>
               </div>
             </form>
             <p class="notes-intro" id="notesIntro">
-              用播放器里的书签保存精彩时刻，或在 Transcript 选择一段原文。
+              Bookmark a memorable moment in the player, or select a passage in Transcript.
             </p>
             <div id="notesList"></div>
           </div>
@@ -166,7 +166,7 @@
                 <button class="enhance-btn" id="exportTranscriptBtn">Export</button>
               </div>
             </div>
-            <p class="transcript-intro">按完整语义分段。选择任何一段即可保存原文或添加笔记。</p>
+            <p class="transcript-intro">Grouped into complete ideas. Select any passage to save it or add a note.</p>
             <div class="transcript-search" role="search">
               <svg class="transcript-search-icon" viewBox="0 0 20 20" aria-hidden="true">
                 <circle cx="8.5" cy="8.5" r="5.5"></circle>
@@ -188,7 +188,7 @@
         <div class="tab-panel" data-panel="library">
           <div class="section">
             <div class="section-title">Watched Library</div>
-            <p class="library-intro">前台实际播放累计超过 10 分钟的视频会自动收录，方便之后回来继续看与回顾。</p>
+            <p class="library-intro">Videos played in the foreground for at least 10 minutes are saved here automatically.</p>
             <div id="libraryList"></div>
           </div>
         </div>

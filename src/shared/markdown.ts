@@ -44,7 +44,7 @@ function renderHighlight(highlight: HighlightRecord): string {
 
   const translation = fallback(highlight.translation);
   if (translation) {
-    lines.push(`**中文理解:** ${translation}`, "");
+    lines.push(`**Chinese translation:** ${translation}`, "");
   }
 
   const vocabulary = renderVocabulary(highlight);

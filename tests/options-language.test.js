@@ -29,20 +29,16 @@ function createLocalStorage() {
   };
 }
 
-test("Settings copy covers English and Simplified Chinese", () => {
+test("Settings copy is English-only", () => {
   assert.equal(options.translate("en", "pageTitle"), "Readnote Atlas Settings");
-  assert.equal(options.translate("zh-CN", "pageTitle"), "Readnote Atlas 设置");
+  assert.equal(options.translate("zh-CN", "pageTitle"), "Readnote Atlas Settings");
   assert.equal(options.translate("en", "saveSettings"), "Save settings");
-  assert.equal(options.translate("zh-CN", "saveSettings"), "保存设置");
   assert.equal(
     options.translate("zh-CN", "clearedDigests", { count: 2 }),
-    "已清除 2 条缓存摘要。",
+    "Cleared 2 cached digests.",
   );
 
-  assert.deepEqual(
-    Object.keys(options.COPY.en).sort(),
-    Object.keys(options.COPY["zh-CN"]).sort(),
-  );
+  assert.deepEqual(Object.keys(options.COPY), ["en"]);
 
   const html = read("options.html");
   const referencedKeys = [
@@ -50,75 +46,26 @@ test("Settings copy covers English and Simplified Chinese", () => {
   ].map((match) => match[1]);
   for (const key of referencedKeys) {
     assert.ok(options.COPY.en[key], `Missing English copy for ${key}`);
-    assert.ok(options.COPY["zh-CN"][key], `Missing Chinese copy for ${key}`);
   }
+  assert.doesNotMatch(JSON.stringify(options.COPY), /[\p{Script=Han}]/u);
   assert.doesNotMatch(JSON.stringify(options.COPY), /—/);
   assert.doesNotMatch(html, /—/);
 });
 
-test("language preference persists through extension-compatible storage", async () => {
-  const storedValues = {};
-  const chromeApi = {
-    storage: {
-      local: {
-        async get(key) {
-          return Object.hasOwn(storedValues, key)
-            ? { [key]: storedValues[key] }
-            : {};
-        },
-        async set(items) {
-          Object.assign(storedValues, items);
-        },
-        async remove() {},
-        async clear() {},
-      },
-    },
-  };
-  const storage = options.createStorageAdapter(chromeApi);
-
-  await options.persistPreferredLanguage(storage, "zh-CN");
-
-  assert.equal(storedValues[options.LANGUAGE_STORAGE_KEY], "zh-CN");
-  assert.equal(await options.readPreferredLanguage(storage), "zh-CN");
-});
-
-test("non-extension preview safely persists language in localStorage", async () => {
+test("non-extension preview safely stores settings data", async () => {
   const localStorage = createLocalStorage();
   const firstSession = options.createStorageAdapter(null, localStorage);
 
-  await options.persistPreferredLanguage(firstSession, "zh-CN");
+  await firstSession.set({ sample: "saved" });
 
   const reopenedSession = options.createStorageAdapter(null, localStorage);
-  assert.equal(await options.readPreferredLanguage(reopenedSession), "zh-CN");
-  assert.equal(options.normalizeLanguage("unsupported"), "en");
+  assert.deepEqual(await reopenedSession.get("sample"), { sample: "saved" });
 });
 
-test("language controls expose a labelled group and one pressed button", () => {
+test("Settings has no interface language switch", () => {
   const html = read("options.html");
-  assert.match(
-    html,
-    /class="language-switch"[\s\S]*role="group"[\s\S]*aria-label="Interface language"/,
-  );
-  assert.match(
-    html,
-    /data-language="en"[\s\S]*aria-pressed="true"[\s\S]*English/,
-  );
-  assert.match(
-    html,
-    /data-language="zh-CN"[\s\S]*aria-pressed="false"[\s\S]*中文/,
-  );
-
-  const buttons = ["en", "zh-CN"].map((language) => ({
-    dataset: { language },
-    attributes: {},
-    setAttribute(name, value) {
-      this.attributes[name] = value;
-    },
-  }));
-  options.updateLanguageButtonState(buttons, "zh-CN");
-
-  assert.equal(buttons[0].attributes["aria-pressed"], "false");
-  assert.equal(buttons[1].attributes["aria-pressed"], "true");
+  assert.doesNotMatch(html, /language-switch|data-language=/);
+  assert.doesNotMatch(html, /[\p{Script=Han}]/u);
 });
 
 test("Settings stays focused on providers, knowledge destinations, and local data", () => {
@@ -127,78 +74,7 @@ test("Settings stays focused on providers, knowledge destinations, and local dat
   assert.match(html, /placeholder="Paste your DeepSeek key"/);
   assert.match(html, /https:\/\/dash\.supadata\.ai\/auth\/sign-up/);
   assert.match(html, /https:\/\/platform\.deepseek\.com\/api_keys/);
-  assert.match(html, /Knowledge base · 个人知识库/);
+  assert.match(html, /Knowledge base/);
   assert.match(html, /data-i18n="localData"/);
   assert.doesNotMatch(html, /coding agent|customizationPrompt/i);
-});
-
-test("language switching preserves edited prompt drafts for the page session", () => {
-  const drafts = options.createPromptDrafts();
-  const chineseDefault = drafts["zh-CN"];
-
-  const chinese = options.switchPromptDraft(
-    drafts,
-    "en",
-    "zh-CN",
-    "Edited English [PROVIDER] [MODEL]",
-  );
-  assert.equal(chinese.prompt, chineseDefault);
-
-  const english = options.switchPromptDraft(
-    drafts,
-    "zh-CN",
-    "en",
-    "已编辑中文 [PROVIDER] [MODEL]",
-  );
-  assert.equal(english.prompt, "Edited English [PROVIDER] [MODEL]");
-
-  const restoredChinese = options.switchPromptDraft(
-    drafts,
-    "en",
-    "zh-CN",
-    english.prompt,
-  );
-  assert.equal(restoredChinese.prompt, "已编辑中文 [PROVIDER] [MODEL]");
-});
-
-test("copy helper writes the current edited textarea value", async () => {
-  const writes = [];
-  const clipboard = {
-    async writeText(value) {
-      writes.push(value);
-    },
-  };
-
-  await options.copyPromptValue(
-    clipboard,
-    "My edited prompt for [PROVIDER] and [MODEL]",
-  );
-
-  assert.deepEqual(writes, ["My edited prompt for [PROVIDER] and [MODEL]"]);
-});
-
-test("localized prompt updates preserve the textarea selection and scroll", () => {
-  const textarea = {
-    value: options.translate("en", "customizationPrompt"),
-    selectionStart: 12,
-    selectionEnd: 48,
-    selectionDirection: "forward",
-    scrollTop: 90,
-    scrollLeft: 7,
-    setSelectionRange(start, end, direction) {
-      this.selectionStart = start;
-      this.selectionEnd = end;
-      this.selectionDirection = direction;
-    },
-  };
-  const chinesePrompt = options.translate("zh-CN", "customizationPrompt");
-
-  options.updateLocalizedPrompt(textarea, chinesePrompt);
-
-  assert.equal(textarea.value, chinesePrompt);
-  assert.equal(textarea.selectionStart, 12);
-  assert.equal(textarea.selectionEnd, 48);
-  assert.equal(textarea.selectionDirection, "forward");
-  assert.equal(textarea.scrollTop, 90);
-  assert.equal(textarea.scrollLeft, 7);
 });

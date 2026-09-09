@@ -360,7 +360,7 @@ function createDigestButton() {
       });
       debugLog("[Readnote Atlas] openSidePanel response:", result);
     } catch (err) {
-      console.error("[Readnote Atlas] Failed to open side panel:", err);
+      debugLog("[Readnote Atlas] Side panel unavailable:", err);
     }
   });
 
@@ -562,17 +562,17 @@ function injectReadnoteSubtitleOverlay(player) {
       <button class="rn-subtitle-resize" type="button" data-resize-handle aria-label="Resize bilingual subtitles" title="Drag to resize"></button>
     </div>
     <div class="rn-subtitle-controls" role="group" aria-label="Readnote subtitle display">
-      <button class="rn-subtitle-mode rn-subtitle-controls-toggle" type="button" data-controls-toggle aria-expanded="false" title="字幕设置">
+      <button class="rn-subtitle-mode rn-subtitle-controls-toggle" type="button" data-controls-toggle aria-expanded="false" title="Subtitle settings">
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h8M12 4h2M2 8h2M6 8h8M2 12h6M10 12h4"></path><circle cx="11" cy="4" r="1"></circle><circle cx="5" cy="8" r="1"></circle><circle cx="9" cy="12" r="1"></circle></svg>
-        <span>字幕</span>
+        <span>Captions</span>
       </button>
       <div class="rn-subtitle-settings">
         <button class="rn-subtitle-mode" type="button" data-mode="bilingual">On</button>
         <button class="rn-subtitle-mode" type="button" data-mode="off">Off</button>
         <span class="rn-subtitle-divider" aria-hidden="true"></span>
-        <span class="rn-subtitle-size-label">字号</span>
-        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="smaller" aria-label="减小字幕字号" title="减小字号">−</button>
-        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="larger" aria-label="增大字幕字号" title="增大字号">+</button>
+        <span class="rn-subtitle-size-label">Size</span>
+        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="smaller" aria-label="Decrease caption size" title="Decrease size">−</button>
+        <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="larger" aria-label="Increase caption size" title="Increase size">+</button>
       </div>
     </div>
   `;
@@ -934,9 +934,9 @@ function showReadnoteSubtitleTranslationError(error, candidates) {
 
 function subtitleTranslationErrorMessage(error) {
   const message = String(error || "");
-  if (/API key not configured/i.test(message)) return "请在 Readnote 设置中配置 DeepSeek API Key";
-  if (/rate limit/i.test(message)) return "翻译请求较多，稍后自动重试";
-  return "翻译暂时失败，稍后自动重试";
+  if (/API key not configured/i.test(message)) return "Add a DeepSeek API key in Readnote Atlas Settings";
+  if (/rate limit/i.test(message)) return "Translation is busy and will retry shortly";
+  return "Translation is temporarily unavailable and will retry shortly";
 }
 
 function renderReadnoteSubtitle(forcePriorityRefresh = false) {
@@ -969,7 +969,7 @@ function renderReadnoteSubtitle(forcePriorityRefresh = false) {
     segment.translation ||
       segment.partialTranslation ||
       readnoteSubtitleTranslationError ||
-      "正在生成中文…",
+      "Generating Chinese…",
   );
   chinese.classList.toggle("is-pending", !segment.translation);
   if (activeChanged || forcePriorityRefresh) {
@@ -1202,7 +1202,7 @@ async function saveCurrentNote() {
 
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[Readnote Atlas] No video element found");
+    debugLog("[Readnote Atlas] No video element found");
     return;
   }
 
@@ -1239,13 +1239,13 @@ async function saveCurrentNote() {
       if (noteButton) {
         noteButton.innerHTML = '<span aria-hidden="true" style="font-weight:700">!</span>';
       }
-      console.error("[Readnote Atlas] Save note error:", result.error);
+      debugLog("[Readnote Atlas] Save note unavailable:", result.error);
     }
   } catch (err) {
     if (noteButton) {
       noteButton.innerHTML = '<span aria-hidden="true" style="font-weight:700">!</span>';
     }
-    console.error("[Readnote Atlas] Save note exception:", err);
+    debugLog("[Readnote Atlas] Save note unavailable:", err);
   }
 
   setTimeout(() => {
@@ -1308,7 +1308,7 @@ function showNoteSavedToast(note) {
       await navigator.clipboard.writeText(note.timestampedUrl);
       e.target.textContent = "Copied";
     } catch (err) {
-      console.error("Copy failed:", err);
+      debugLog("Copy unavailable:", err);
     }
   });
 
@@ -1373,7 +1373,7 @@ function extractVideoInfo() {
 function seekToTimestamp(seconds) {
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[Readnote Atlas Content] No video element found for seek");
+    debugLog("[Readnote Atlas Content] No video element found for seek");
     return;
   }
 

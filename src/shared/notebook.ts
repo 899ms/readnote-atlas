@@ -42,7 +42,7 @@ export function renderExcerptBlock(excerpt: ExcerptRecord): string {
   }
 
   if (excerpt.translation.trim()) {
-    lines.push("", `中文: ${excerpt.translation.trim()}`);
+    lines.push("", `Chinese: ${excerpt.translation.trim()}`);
   }
 
   return lines.join("\n");

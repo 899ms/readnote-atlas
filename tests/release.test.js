@@ -13,7 +13,7 @@ test("manifest exposes the unified article and video product", () => {
 
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, "Readnote Atlas");
-  assert.equal(manifest.version, "0.2.0");
+  assert.equal(manifest.version, "0.2.1");
   assert.equal(packageJson.version, manifest.version);
   assert.deepEqual(youtubeLayer.js, [
     "transcript.js",
@@ -86,7 +86,7 @@ test("all product surfaces use the restrained Readnote visual language", () => {
 test("settings explains and links the local knowledge companion", () => {
   const html = read("options.html");
   const script = read("options.js");
-  assert.match(html, /Knowledge base · 个人知识库/);
+  assert.match(html, /Knowledge base/);
   assert.match(html, /http:\/\/127\.0\.0\.1:8791\/setup/);
   assert.match(html, /npm run companion/);
   assert.match(script, /127\.0\.0\.1:8791\/health/);

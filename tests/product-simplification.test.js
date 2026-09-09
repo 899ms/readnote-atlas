@@ -42,6 +42,7 @@ test("Overview is one comprehensive Chinese discussion summary", () => {
   assert.match(background, /function ensureOverviewForVideo/);
   assert.match(background, /void ensureOverviewForVideo\(videoId, tabId, cached\)/);
   assert.match(background, /\.\.\.latest,[\s\S]*analysis: result\.analysis/);
+  assert.match(panel, />Chinese Overview</);
 });
 
 test("Library stays reachable without a loaded digest", () => {
@@ -68,7 +69,7 @@ test("player subtitles prefetch a batch and expose clear, minimal controls", () 
   assert.match(content, /message\.generation !== readnoteSubtitleTranslationGeneration/);
   assert.match(background, /handleTranslateOverlayBatch/);
   assert.match(content, /data-style-action="smaller"/);
-  assert.match(content, />字号</);
+  assert.match(content, />Size</);
   assert.doesNotMatch(content, /data-style-action="font"/);
   assert.doesNotMatch(content, /data-style-action="(?:higher|lower)"/);
   assert.match(content, /readnote_subtitle_style/);
@@ -101,6 +102,35 @@ test("player subtitles prefetch a batch and expose clear, minimal controls", () 
   assert.match(background, /hardTimeoutMs:\s*15_000/);
   assert.match(background, /stream:\s*true/);
   assert.doesNotMatch(content, /border:1px dashed/);
+});
+
+test("all visible tool chrome is English while generated Chinese remains dynamic", () => {
+  const uiSources = [
+    read("content.js"),
+    read("sidepanel.html"),
+    read("sidepanel.js"),
+    read("options.html"),
+    read("options.js"),
+    read("src/article-reader/index.ts"),
+  ].join("\n");
+  assert.doesNotMatch(uiSources, /[\p{Script=Han}]/u);
+  assert.match(read("prompts/analysis.md"), /overviewZh/);
+});
+
+test("handled relay failures do not create Chrome extension error entries", () => {
+  const background = read("background.js");
+  const relayCatch = background.match(
+    /if \(message\.action === "relayToContent"\)[\s\S]*?return true; \/\/ Keep channel open/,
+  )?.[0] || "";
+  assert.doesNotMatch(relayCatch, /console\.error/);
+  assert.match(
+    background,
+    /if \(isMissingContentReceiver\(retryError\)\)[\s\S]*throw new Error\("YouTube page is still loading\. Please try again\."\)/,
+  );
+  assert.match(background, /function quietlyRunChromeApi\(/);
+  assert.match(background, /quietlyRunChromeApi\([\s\S]*?\.setPanelBehavior\(/);
+  assert.match(background, /quietlyRunChromeApi\([\s\S]*?\.setOptions\(/);
+  assert.match(background, /quietlyRunChromeApi\([\s\S]*?\.open\(/);
 });
 
 test("article page actions collapse behind one quiet launcher", () => {

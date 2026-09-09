@@ -106,7 +106,7 @@ npm run build       # compile the article reader content script
 npm test            # run unit and product-contract tests
 npm run typecheck   # check the TypeScript article reader
 npm run check       # build, typecheck, test, and audit the release set
-npm run package     # create dist/readnote-atlas-v0.2.0.zip
+npm run package     # create dist/readnote-atlas-v0.2.1.zip
 npm run companion   # start the local knowledge companion
 ```
 

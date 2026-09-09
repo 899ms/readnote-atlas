@@ -545,7 +545,7 @@ async function checkCurrentTab() {
           currentVideoDuration = result.response.duration || 0;
         }
       } catch (e) {
-        console.error("[Readnote Atlas Panel] getVideoInfo error:", e);
+        debugLog("[Readnote Atlas Panel] Video info unavailable:", e);
         currentVideoTitle = "";
         currentChannelName = "";
         currentVideoDescription = "";
@@ -557,7 +557,7 @@ async function checkCurrentTab() {
       showState("welcome");
     }
   } catch (error) {
-    console.error("Tab check error:", error);
+    debugLog("Tab check unavailable:", error);
     showState("welcome");
   }
 }
@@ -621,7 +621,7 @@ async function startDigest(videoId, videoUrl) {
     const overview = document.getElementById("overviewContent");
     if (overview) {
       overview.innerHTML =
-        '<p class="overview-placeholder">正在载入字幕，随后自动生成完整中文综述…</p>';
+        '<p class="overview-placeholder">Loading the transcript, then generating a comprehensive Chinese overview…</p>';
     }
   }
 
@@ -827,7 +827,7 @@ async function translateInterfaceSegments(surface, segments, rerender) {
           videoTitle: currentVideoTitle,
         });
       } catch (error) {
-        console.error("[Readnote Atlas] Interface batch error:", error);
+        debugLog("[Readnote Atlas] Interface batch unavailable:", error);
         result = { success: false, error: error.message };
       }
       if (
@@ -854,7 +854,7 @@ async function translateInterfaceSegments(surface, segments, rerender) {
       await updateCache();
     }
   } catch (error) {
-    console.error("[Readnote Atlas] Interface translation error:", error);
+    debugLog("[Readnote Atlas] Interface translation unavailable:", error);
     missing.forEach((segment) =>
       interfaceTranslationFailures.add(segment.cacheKey),
     );
@@ -899,7 +899,7 @@ function renderAnalysisResults(analysis) {
         .split(/\n{2,}/)
         .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
         .join("")
-    : '<p class="overview-placeholder">暂时无法生成内容综述。</p>';
+    : '<p class="overview-placeholder">The Chinese overview is not available yet.</p>';
 }
 
 /**
@@ -1424,7 +1424,7 @@ async function triggerAnalysis() {
   const requestVideoId = currentVideoId;
 
   const overview = document.getElementById("overviewContent");
-  if (overview) overview.innerHTML = '<p class="overview-placeholder">正在生成完整中文综述…</p>';
+  if (overview) overview.innerHTML = '<p class="overview-placeholder">Generating a comprehensive Chinese overview…</p>';
 
   try {
     const analysisResult = await chrome.runtime.sendMessage({
@@ -1446,7 +1446,7 @@ async function triggerAnalysis() {
 
     if (!analysisResult.success) {
       if (overview)
-        overview.innerHTML = `<p class="overview-error">生成失败：${escapeHtml(analysisResult.error || "Unknown error")}</p>`;
+        overview.innerHTML = `<p class="overview-error">Overview failed: ${escapeHtml(analysisResult.error || "Unknown error")}</p>`;
       return;
     }
 
@@ -1462,9 +1462,9 @@ async function triggerAnalysis() {
     ) {
       return;
     }
-    console.error("[Readnote Atlas Panel] Analysis error:", error);
+    debugLog("[Readnote Atlas Panel] Analysis unavailable:", error);
     if (overview)
-      overview.innerHTML = `<p class="overview-error">错误：${escapeHtml(error.message)}</p>`;
+      overview.innerHTML = `<p class="overview-error">Overview failed: ${escapeHtml(error.message)}</p>`;
   } finally {
     if (
       requestGeneration === analysisGeneration &&
@@ -1513,7 +1513,7 @@ async function seekTo(seconds) {
     });
     debugLog("[Readnote Atlas Panel] seekTo relay result:", result);
   } catch (error) {
-    console.error("[Readnote Atlas Panel] seekTo error:", error);
+    debugLog("[Readnote Atlas Panel] Seek unavailable:", error);
   }
 }
 
@@ -1561,7 +1561,7 @@ async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (error) {
-    console.error("Copy failed:", error);
+    debugLog("Copy unavailable:", error);
     return false;
   }
 }
@@ -1795,7 +1795,7 @@ function setupExplainFeature() {
           button.disabled = false;
         }, 900);
       } catch (error) {
-        console.error("[Readnote Atlas] Save selected note error:", error);
+        debugLog("[Readnote Atlas] Save selected note unavailable:", error);
         button.textContent = "Error";
         setTimeout(() => {
           button.textContent = originalText;
@@ -1945,7 +1945,7 @@ async function saveToCache(videoId) {
     // Evict old entries if we have more than 20 videos cached
     await evictOldCacheEntries(20);
   } catch (error) {
-    console.error("Cache save error:", error);
+    debugLog("Cache save unavailable:", error);
   }
 }
 
@@ -1987,7 +1987,7 @@ async function evictOldCacheEntries(maxEntries) {
       debugLog(`[Readnote Atlas] Evicted ${toRemove.length} old cache entries`);
     }
   } catch (error) {
-    console.error("Cache eviction error:", error);
+    debugLog("Cache eviction unavailable:", error);
   }
 }
 
@@ -2013,7 +2013,7 @@ async function loadFromCache(videoId) {
 
     return cached;
   } catch (error) {
-    console.error("Cache load error:", error);
+    debugLog("Cache load unavailable:", error);
     return null;
   }
 }
@@ -2060,7 +2060,7 @@ async function saveQuickThought() {
     await loadNotes(currentVideoId);
     button.textContent = "Saved";
   } catch (error) {
-    console.error("[Readnote Atlas Panel] Save thought error:", error);
+    debugLog("[Readnote Atlas Panel] Save thought unavailable:", error);
     button.textContent = "Retry";
   } finally {
     button.disabled = false;
@@ -2079,8 +2079,8 @@ async function loadLibrary() {
       ReadnoteLibrary.qualifiedItems(stored[ReadnoteLibrary.STORAGE_KEY]),
     );
   } catch (error) {
-    console.error("[Readnote Atlas Panel] Load library error:", error);
-    list.innerHTML = '<p class="library-empty">暂时无法读取观看记录。</p>';
+    debugLog("[Readnote Atlas Panel] Load library unavailable:", error);
+    list.innerHTML = '<p class="library-empty">Watch history is temporarily unavailable.</p>';
   }
 }
 
@@ -2090,7 +2090,7 @@ function renderLibrary(items) {
   list.innerHTML = "";
   if (!items.length) {
     list.innerHTML =
-      '<div class="library-empty"><strong>这里还没有视频</strong><span>一条视频在前台实际播放累计满 10 分钟后，会自动出现在这里。</span></div>';
+      '<div class="library-empty"><strong>No videos yet</strong><span>A video appears here after 10 minutes of foreground playback.</span></div>';
     return;
   }
 
@@ -2098,7 +2098,7 @@ function renderLibrary(items) {
     const card = document.createElement("article");
     card.className = "library-item";
     const watchedAt = item.lastWatchedAt
-      ? new Intl.DateTimeFormat("zh-CN", {
+      ? new Intl.DateTimeFormat("en-US", {
           month: "short",
           day: "numeric",
         }).format(new Date(item.lastWatchedAt))
@@ -2113,7 +2113,7 @@ function renderLibrary(items) {
           ${watchedAt ? `<span>${escapeHtml(watchedAt)}</span>` : ""}
         </div>
       </div>
-      <button class="library-open" type="button" aria-label="继续观看 ${escapeHtml(item.title)}">Continue</button>
+      <button class="library-open" type="button" aria-label="Continue watching ${escapeHtml(item.title)}">Continue</button>
     `;
     card.querySelector(".library-open").addEventListener("click", async () => {
       const separator = item.url.includes("?") ? "&" : "?";
@@ -2142,7 +2142,7 @@ async function loadNotes(videoId) {
       renderNotes(result.notes, videoId);
     }
   } catch (error) {
-    console.error("[Readnote Atlas Panel] Load notes error:", error);
+    debugLog("[Readnote Atlas Panel] Load notes unavailable:", error);
   }
 }
 
@@ -2174,8 +2174,8 @@ function renderNotes(notes, filteredVideoId) {
   if (!notes || notes.length === 0) {
     notesIntro.style.display = "block";
     notesIntro.textContent = filteredVideoId
-      ? "还没有笔记。用播放器右上角的书签保存精彩时刻，或直接写下想法。"
-      : "还没有保存过笔记。";
+      ? "No notes yet. Use the bookmark in the player or add a thought above."
+      : "No saved notes yet.";
     return;
   }
 
@@ -2243,7 +2243,7 @@ function renderNotes(notes, filteredVideoId) {
             btn.textContent = note.text ? "Copy text" : "Copy note";
           }, 2000);
         } catch (err) {
-          console.error("Copy failed:", err);
+          debugLog("Copy unavailable:", err);
         }
       });
 
@@ -2259,7 +2259,7 @@ function renderNotes(notes, filteredVideoId) {
             btn.textContent = "Copy timestamp";
           }, 2000);
         } catch (err) {
-          console.error("Copy failed:", err);
+          debugLog("Copy unavailable:", err);
         }
       });
 
@@ -2299,7 +2299,7 @@ async function deleteNote(noteId) {
       noteId: noteId,
     });
   } catch (error) {
-    console.error("[Readnote Atlas Panel] Delete note error:", error);
+    debugLog("[Readnote Atlas Panel] Delete note unavailable:", error);
   }
 }
 
@@ -2479,7 +2479,7 @@ async function loadTranscriptViewState(videoId) {
     if (!Number.isFinite(scrollTop) || scrollTop < 0) return null;
     return { videoId, scrollTop };
   } catch (error) {
-    console.error("[Readnote Atlas] Reading position load error:", error);
+    debugLog("[Readnote Atlas] Reading position load unavailable:", error);
     return null;
   }
 }
@@ -2503,7 +2503,7 @@ async function saveTranscriptViewState(videoId, scrollTop) {
     );
     await storage.set({ [TRANSCRIPT_VIEW_STATE_KEY]: recentStates });
   } catch (error) {
-    console.error("[Readnote Atlas] Reading position save error:", error);
+    debugLog("[Readnote Atlas] Reading position save unavailable:", error);
   }
 }
 

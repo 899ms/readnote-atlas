@@ -25,7 +25,7 @@ test("companion groups repeated notes below one dated source", async () => {
   assert.equal((second.match(/#### A useful interview/g) || []).length, 1);
   assert.match(second, /\[Source\]\(https:\/\/youtube\.com\/watch\?v=abc123&t=90s\)/);
   assert.match(second, /> A second idea\./);
-  assert.match(second, /中文: 一段完整并带有时间戳的想法。/);
+  assert.match(second, /Chinese: 一段完整并带有时间戳的想法。/);
 });
 
 test("Notion output keeps the playable source and note context", async () => {

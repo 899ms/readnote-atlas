@@ -48,7 +48,7 @@ export function buildNotionExcerptBlocks(excerpt) {
   }
 
   if (String(excerpt.translation ?? "").trim()) {
-    blocks.push(paragraph(`中文: ${String(excerpt.translation).trim()}`));
+    blocks.push(paragraph(`Chinese: ${String(excerpt.translation).trim()}`));
   }
 
   return blocks;

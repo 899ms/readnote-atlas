@@ -913,7 +913,7 @@
 		const toggle = document.createElement("button");
 		toggle.type = "button";
 		toggle.className = "rk-page-actions-toggle";
-		toggle.textContent = "译";
+		toggle.textContent = "T";
 		toggle.title = "Readnote translation tools";
 		toggle.setAttribute("aria-label", "Open Readnote translation tools");
 		toggle.setAttribute("aria-expanded", "false");
