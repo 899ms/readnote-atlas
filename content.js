@@ -631,7 +631,7 @@ function normalizeReadnoteSubtitleStyle(value) {
       : fallback;
   const width = value?.width === "auto" || !Number.isFinite(Number(value?.width))
     ? "auto"
-    : clamp(value.width, 24, 90, 58);
+    : clamp(value.width, 24, 86, 58);
   const horizontalMargin = width === "auto" ? 5 : width / 2 + 2;
   return {
     size: ["small", "medium", "large"].includes(value?.size) ? value.size : "medium",
@@ -724,7 +724,7 @@ function setupReadnoteSubtitleTransform(copy, player) {
       );
     } else {
       const pointerPercent = ((event.clientX - interaction.playerLeft) / interaction.width) * 100;
-      const maximumWidth = Math.max(24, Math.min(90, 98 - interaction.startLeftPercent));
+      const maximumWidth = Math.max(24, Math.min(86, 98 - interaction.startLeftPercent));
       readnoteSubtitleStyle.width = Math.min(
         maximumWidth,
         Math.max(24, pointerPercent - interaction.startLeftPercent),
@@ -1434,11 +1434,16 @@ async function flushWatchHistoryProgress() {
   tracker.pendingSeconds = 0;
   const trackerVideoId = tracker.videoId;
   try {
-    await chrome.runtime.sendMessage({
+    const result = await chrome.runtime.sendMessage({
       action: "recordWatchProgress",
-      video: currentWatchHistoryMetadata(tracker.videoId, tracker.video),
+      video: {
+        ...tracker.metadata,
+        duration: Number(tracker.video.duration) || tracker.metadata.duration,
+        lastPosition: Number(tracker.video.currentTime) || 0,
+      },
       watchedSeconds,
     });
+    if (!result?.success) throw new Error(result?.error || "Watch progress was not saved");
   } catch (_error) {
     if (watchHistoryTracker?.videoId === trackerVideoId) {
       watchHistoryTracker.pendingSeconds += watchedSeconds;
@@ -1455,12 +1460,18 @@ function setupWatchHistoryTracking() {
     watchHistoryTracker?.videoId === videoId &&
     watchHistoryTracker.video === video
   ) {
+    const latest = currentWatchHistoryMetadata(videoId, video);
+    if (latest.title) watchHistoryTracker.metadata.title = latest.title;
+    if (latest.channelName) {
+      watchHistoryTracker.metadata.channelName = latest.channelName;
+    }
     return;
   }
   void flushWatchHistoryProgress();
   watchHistoryTracker = {
     videoId,
     video,
+    metadata: currentWatchHistoryMetadata(videoId, video),
     pendingSeconds: 0,
     lastTick: performance.now(),
   };

@@ -32,6 +32,7 @@ const OVERLAY_SEGMENT_LIMITS = Object.freeze({
 const COMPANION_URL = "http://127.0.0.1:8791";
 const overlayTranscriptRequests = new Map();
 const overlayTranslationCacheWrites = new Map();
+const overviewAnalysisRequests = new Map();
 let libraryWriteQueue = Promise.resolve();
 
 function isMissingContentReceiver(error) {
@@ -446,14 +447,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "analyzeTranscript") {
-    // Pass video duration to help the AI validate timestamps
-    handleAnalyzeTranscript(
-      message.transcriptText,
-      message.videoTitle,
-      message.channelName,
-      message.videoDescription,
-      message.videoDuration,
-    )
+    const analysisRequest = message.videoId
+      ? chrome.storage.local.get(`digest_${message.videoId}`).then((stored) =>
+          ensureOverviewForVideo(
+            message.videoId,
+            sender.tab?.id,
+            stored[`digest_${message.videoId}`] || {
+              transcriptTimestamped: message.transcriptText,
+            },
+            {
+              title: message.videoTitle,
+              channelName: message.channelName,
+              description: message.videoDescription,
+              duration: message.videoDuration,
+            },
+          ).then((analysis) =>
+            analysis
+              ? { success: true, analysis }
+              : { success: false, error: "Overview generation failed." },
+          ),
+        )
+      : handleAnalyzeTranscript(
+          message.transcriptText,
+          message.videoTitle,
+          message.channelName,
+          message.videoDescription,
+          message.videoDuration,
+        );
+    analysisRequest
       .then(sendResponse)
       .catch((err) => sendResponse({ error: err.message }));
     return true;
@@ -533,7 +554,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "getOverlayState") {
-    handleGetOverlayState(message.videoId)
+    handleGetOverlayState(message.videoId, sender.tab?.id)
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -1146,7 +1167,7 @@ async function handleGetVideoInfo(tabId) {
 // NOTE MANAGEMENT
 // ============================================================
 
-async function handleGetOverlayState(videoId) {
+async function handleGetOverlayState(videoId, tabId) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
   const cacheKey = `digest_${videoId}`;
   const stored = await chrome.storage.local.get([
@@ -1179,13 +1200,18 @@ async function handleGetOverlayState(videoId) {
     cached = {
       transcript: transcriptResult.transcript,
       transcriptText: transcriptResult.transcriptText,
-      transcriptTextTimestamped: transcriptResult.transcriptTextTimestamped,
+      transcriptTimestamped: transcriptResult.transcriptTextTimestamped,
       transcriptLanguage: transcriptResult.language || null,
       paragraphCache: {},
-      cachedAt: Date.now(),
+      timestamp: Date.now(),
     };
     await chrome.storage.local.set({ [cacheKey]: cached });
   }
+
+  // The player requests its subtitle state as soon as a video loads. Start the
+  // Overview in the background at that same point so opening Atlas later does
+  // not introduce a second wait. This never blocks live subtitle rendering.
+  void ensureOverviewForVideo(videoId, tabId, cached);
 
   const translations = cached.paragraphCache || {};
   const segments = ReadnoteTranscript.groupEntries(
@@ -1204,6 +1230,53 @@ async function handleGetOverlayState(videoId) {
     title: cached.videoTitle || "",
     segments,
   };
+}
+
+function ensureOverviewForVideo(videoId, tabId, cachedDigest, metadata = {}) {
+  if (cachedDigest?.analysis?.overviewZh) return Promise.resolve(cachedDigest.analysis);
+  const existing = overviewAnalysisRequests.get(videoId);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const transcriptTimestamped =
+      cachedDigest?.transcriptTimestamped ||
+      cachedDigest?.transcriptTextTimestamped ||
+      cachedDigest?.transcriptText ||
+      "";
+    if (!transcriptTimestamped) return null;
+    const details = Number.isInteger(tabId)
+      ? await getPlayerVideoDetails(tabId)
+      : null;
+    const result = await handleAnalyzeTranscript(
+      transcriptTimestamped,
+      metadata.title || details?.title || cachedDigest?.videoTitle || "",
+      metadata.channelName || details?.channelName || cachedDigest?.channelName || "",
+      metadata.description || details?.description || "",
+      metadata.duration || details?.duration || 0,
+    );
+    if (!result?.success) return null;
+
+    // Merge against the latest cache so concurrent subtitle translations are
+    // never erased by the slower Overview request.
+    const cacheKey = `digest_${videoId}`;
+    const stored = await chrome.storage.local.get(cacheKey);
+    const latest = stored[cacheKey] || cachedDigest;
+    await chrome.storage.local.set({
+      [cacheKey]: {
+        ...latest,
+        analysis: result.analysis,
+        videoTitle: metadata.title || details?.title || latest?.videoTitle || "",
+        channelName:
+          metadata.channelName || details?.channelName || latest?.channelName || "",
+        timestamp: Date.now(),
+      },
+    });
+    return result.analysis;
+  })().finally(() => {
+    overviewAnalysisRequests.delete(videoId);
+  });
+  overviewAnalysisRequests.set(videoId, request);
+  return request;
 }
 
 async function handleSetOverlayMode(videoId, mode) {
@@ -1469,6 +1542,7 @@ async function handleSaveNote(
       const seconds = safeTimestamp % 60;
       const note = {
         id: `note_${Date.now()}`,
+        kind: "excerpt",
         videoId,
         videoTitle:
           typeof videoTitle === "string"
@@ -1604,6 +1678,7 @@ async function handleSaveNote(
     // Create the note object
     const note = {
       id: `note_${Date.now()}`,
+      kind: "bookmark",
       videoId: videoId,
       videoTitle:
         typeof videoTitle === "string"
@@ -2129,6 +2204,7 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   normalizeTranslatedSegmentBatch,
   handleTranslateLiveSubtitle,
   mergeOverlayTranslationsIntoCache,
+  ensureOverviewForVideo,
   handleSaveNote,
   handleRecordWatchProgress,
   handleTranslateContent,

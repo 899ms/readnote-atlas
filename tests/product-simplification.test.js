@@ -36,6 +36,22 @@ test("Overview is one comprehensive Chinese discussion summary", () => {
   assert.match(background, /overviewZh/);
   assert.match(panelScript, /normalizeCachedAnalysis\(cached\.analysis\)/);
   assert.match(panelScript, /function normalizeCachedAnalysis/);
+  assert.match(panelScript, /let analysisGeneration = 0/);
+  assert.match(panelScript, /requestGeneration !== analysisGeneration/);
+  assert.match(panelScript, /requestVideoId !== currentVideoId/);
+  assert.match(background, /function ensureOverviewForVideo/);
+  assert.match(background, /void ensureOverviewForVideo\(videoId, tabId, cached\)/);
+  assert.match(background, /\.\.\.latest,[\s\S]*analysis: result\.analysis/);
+});
+
+test("Library stays reachable without a loaded digest", () => {
+  const panel = read("sidepanel.html");
+  const panelScript = read("sidepanel.js");
+  const css = read("sidepanel.css");
+  assert.match(panel, /id="libraryBtn"/);
+  assert.match(panelScript, /function openLibraryView/);
+  assert.match(panelScript, /tabs\?\.classList\.toggle\("library-only", !currentTranscript\)/);
+  assert.match(css, /\.tabs\.library-only/);
 });
 
 test("player subtitles prefetch a batch and expose clear, minimal controls", () => {
@@ -80,6 +96,7 @@ test("player subtitles prefetch a batch and expose clear, minimal controls", () 
   assert.match(content, /readnoteSubtitleUrgentRequests\.has\(segment\.id\)/);
   assert.match(content, /\.rn-subtitle-zh \{[^}]*#fff7dc/);
   assert.match(content, /background:rgba\(7,7,8,\.64\)/);
+  assert.match(content, /if \(!result\?\.success\) throw new Error/);
   assert.match(background, /idleTimeoutMs:\s*8_000/);
   assert.match(background, /hardTimeoutMs:\s*15_000/);
   assert.match(background, /stream:\s*true/);

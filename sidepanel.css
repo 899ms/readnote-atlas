@@ -123,6 +123,15 @@ body {
   gap: 8px;
 }
 
+.utility-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.tabs.library-only .tab:not([data-tab="library"]) {
+  display: none;
+}
+
 .settings-btn {
   flex-shrink: 0;
   padding: 5px 10px;

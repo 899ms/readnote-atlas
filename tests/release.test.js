@@ -56,6 +56,7 @@ test("video UI includes full transcript, knowledge sync, and player subtitle con
   assert.match(panel, /data-tab="library"/);
   assert.match(panel, /class="tab active" data-tab="overview"/);
   assert.match(panel, /id="notesComposer"/);
+  assert.match(panel, /id="libraryBtn"/);
   assert.match(panelScript, /void triggerAnalysis\(\)/);
   assert.match(panelScript, /ReadnoteLibrary\.qualifiedItems/);
   assert.match(panelScript, /knowledge-sync-badge/);

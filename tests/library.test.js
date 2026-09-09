@@ -49,3 +49,20 @@ test("library output is normalized, newest first, and human readable", () => {
   assert.equal(library.formatWatchTime(610), "10 min watched");
   assert.equal(library.formatWatchTime(3900), "1h 5m watched");
 });
+
+test("recent partial views never evict a completed library video", () => {
+  let state = library.recordWatchSample(null, video, 600, 1);
+  for (let index = 0; index < 205; index += 1) {
+    state = library.recordWatchSample(
+      state,
+      { ...video, videoId: `partial-${index}` },
+      5,
+      index + 2,
+    );
+  }
+  assert.equal(library.qualifiedItems(state)[0].videoId, "atlas123");
+  assert.equal(
+    state.items.filter((item) => item.watchedSeconds < 600).length,
+    library.MAX_PARTIAL_ITEMS,
+  );
+});

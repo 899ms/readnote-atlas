@@ -26,6 +26,7 @@ let currentChannelName = "";
 let currentVideoDescription = "";
 let currentVideoDuration = 0;
 let isAnalysisLoading = false; // Track if analysis is in progress
+let analysisGeneration = 0; // Invalidates Overview results from prior videos.
 let youtubeTabId = null; // Store the YouTube tab ID for reliable messaging
 let errorAction = null;
 
@@ -300,6 +301,13 @@ chrome.storage?.onChanged?.addListener((changes, areaName) => {
   ) {
     void loadLibrary();
   }
+  const digestChange = currentVideoId
+    ? changes[`digest_${currentVideoId}`]?.newValue
+    : null;
+  if (digestChange?.analysis && !currentAnalysis) {
+    currentAnalysis = normalizeCachedAnalysis(digestChange.analysis);
+    if (currentAnalysis) renderAnalysisResults(currentAnalysis);
+  }
   if (!currentVideoId) return;
   const modes =
     changes[ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY]?.newValue;
@@ -425,6 +433,9 @@ function setupEventListeners() {
 
   document.getElementById("settingsBtn")?.addEventListener("click", () => {
     chrome.runtime.sendMessage({ action: "openOptions" });
+  });
+  document.getElementById("libraryBtn")?.addEventListener("click", () => {
+    openLibraryView();
   });
 
   // Transcript actions
@@ -581,6 +592,7 @@ function extractVideoId(url) {
 // ============================================================
 
 async function startDigest(videoId, videoUrl) {
+  document.getElementById("tabsNav")?.classList.remove("library-only");
   // Check if we already have this video loaded in memory
   if (videoId === currentVideoId && currentAnalysis) {
     showState("results");
@@ -591,6 +603,7 @@ async function startDigest(videoId, videoUrl) {
 
   // Every video change invalidates observer work and in-flight translations.
   if (videoChanged) {
+    analysisGeneration += 1;
     translationGeneration += 1;
     if (transcriptScrollObserver) transcriptScrollObserver.disconnect();
     transcriptScrollObserver = null;
@@ -621,7 +634,8 @@ async function startDigest(videoId, videoUrl) {
     currentAnalysis = normalizeCachedAnalysis(cached.analysis);
     currentTranscript = cached.transcript;
     currentTranscriptText = cached.transcriptText;
-    currentTranscriptTimestamped = cached.transcriptTimestamped;
+    currentTranscriptTimestamped =
+      cached.transcriptTimestamped || cached.transcriptTextTimestamped || null;
     currentTranscriptLanguage = cached.transcriptLanguage || null;
     isAnalysisLoading = false;
 
@@ -710,6 +724,10 @@ async function startDigest(videoId, videoUrl) {
   currentTranscriptTimestamped = transcriptResult.transcriptTextTimestamped;
   currentTranscriptLanguage = transcriptResult.language || null;
 
+  // Persist the transcript before Overview begins so the background can
+  // de-duplicate the automatic player request and the side-panel request.
+  await saveToCache(videoId);
+
   // Render transcript immediately (no LLM needed)
   renderTranscript();
   showState("results");
@@ -726,9 +744,6 @@ async function startDigest(videoId, videoUrl) {
   // Overview is the first reading surface, so begin generating it as soon as
   // captions are ready instead of making the user open a tab and wait.
   void triggerAnalysis();
-
-  // Save transcript to cache (without analysis)
-  await saveToCache(videoId);
 }
 
 // ============================================================
@@ -1281,6 +1296,15 @@ function showState(state) {
   }
 }
 
+function openLibraryView() {
+  showState("results");
+  const tabs = document.getElementById("tabsNav");
+  tabs?.classList.toggle("library-only", !currentTranscript);
+  const languageControl = document.getElementById("transcriptModeControl");
+  if (!currentTranscript && languageControl) languageControl.style.display = "none";
+  switchTab("library");
+}
+
 function updateLoading(title, subtitle) {
   document.getElementById("loadingText").textContent = title;
   document.getElementById("loadingSubtext").textContent = subtitle;
@@ -1396,6 +1420,8 @@ async function triggerAnalysis() {
     return;
 
   isAnalysisLoading = true;
+  const requestGeneration = analysisGeneration;
+  const requestVideoId = currentVideoId;
 
   const overview = document.getElementById("overviewContent");
   if (overview) overview.innerHTML = '<p class="overview-placeholder">正在生成完整中文综述…</p>';
@@ -1403,6 +1429,7 @@ async function triggerAnalysis() {
   try {
     const analysisResult = await chrome.runtime.sendMessage({
       action: "analyzeTranscript",
+      videoId: requestVideoId,
       transcriptText: currentTranscriptTimestamped,
       videoTitle: currentVideoTitle,
       channelName: currentChannelName,
@@ -1410,10 +1437,16 @@ async function triggerAnalysis() {
       videoDuration: currentVideoDuration,
     });
 
+    if (
+      requestGeneration !== analysisGeneration ||
+      requestVideoId !== currentVideoId
+    ) {
+      return;
+    }
+
     if (!analysisResult.success) {
       if (overview)
         overview.innerHTML = `<p class="overview-error">生成失败：${escapeHtml(analysisResult.error || "Unknown error")}</p>`;
-      isAnalysisLoading = false;
       return;
     }
 
@@ -1421,14 +1454,25 @@ async function triggerAnalysis() {
     renderAnalysisResults(currentAnalysis);
 
     // Save to cache now that we have analysis
-    await saveToCache(currentVideoId);
+    await saveToCache(requestVideoId);
   } catch (error) {
+    if (
+      requestGeneration !== analysisGeneration ||
+      requestVideoId !== currentVideoId
+    ) {
+      return;
+    }
     console.error("[Readnote Atlas Panel] Analysis error:", error);
     if (overview)
       overview.innerHTML = `<p class="overview-error">错误：${escapeHtml(error.message)}</p>`;
+  } finally {
+    if (
+      requestGeneration === analysisGeneration &&
+      requestVideoId === currentVideoId
+    ) {
+      isAnalysisLoading = false;
+    }
   }
-
-  isAnalysisLoading = false;
 }
 
 // ============================================================
@@ -1863,20 +1907,30 @@ async function saveToCache(videoId) {
       }
     }
 
+    const cacheKey = `digest_${videoId}`;
+    const stored = await chrome.storage.local.get(cacheKey);
+    const latest = stored[cacheKey] || {};
     const cacheData = {
-      analysis: currentAnalysis, // May be null if not yet analyzed
+      ...latest,
+      analysis: currentAnalysis || latest.analysis || null,
       transcript: currentTranscript,
       transcriptText: currentTranscriptText,
       transcriptTimestamped: currentTranscriptTimestamped,
       transcriptLanguage: currentTranscriptLanguage,
       videoTitle: currentVideoTitle,
       channelName: currentChannelName,
-      paragraphCache: paragraphCacheForVideo,
-      interfaceCache: interfaceCacheForVideo,
+      paragraphCache: {
+        ...(latest.paragraphCache || {}),
+        ...paragraphCacheForVideo,
+      },
+      interfaceCache: {
+        ...(latest.interfaceCache || {}),
+        ...interfaceCacheForVideo,
+      },
       timestamp: Date.now(),
     };
 
-    await chrome.storage.local.set({ [`digest_${videoId}`]: cacheData });
+    await chrome.storage.local.set({ [cacheKey]: cacheData });
     if (youtubeTabId) {
       chrome.tabs
         .sendMessage(youtubeTabId, { action: "refreshSubtitleOverlay" })
@@ -2134,7 +2188,7 @@ function renderNotes(notes, filteredVideoId) {
     noteEl.innerHTML = `
       <div class="note-header">
         <span class="note-timestamp" data-url="${escapeHtml(note.timestampedUrl)}" data-seconds="${Number(note.timestampSeconds) || 0}">${escapeHtml(note.timestamp)}</span>
-        <span class="note-kind">${note.kind === "thought" ? "Thought" : "Bookmark"}</span>
+        <span class="note-kind">${note.kind === "thought" ? "Thought" : note.kind === "excerpt" ? "Excerpt" : "Bookmark"}</span>
         ${!filteredVideoId ? `<span class="note-video-title">${escapeHtml(note.videoTitle)}</span>` : ""}
       </div>
       ${note.text ? `<div class="note-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>` : ""}
@@ -2143,7 +2197,7 @@ function renderNotes(notes, filteredVideoId) {
         <span class="knowledge-sync-badge" data-status="${escapeHtml(note.knowledgeSync?.status || "unavailable")}">${escapeHtml(knowledgeSyncLabel(note))}</span>
       </div>
       <div class="note-actions">
-        <button class="note-action-btn note-copy-text">Copy text</button>
+        <button class="note-action-btn note-copy-text">${note.text ? "Copy text" : "Copy note"}</button>
         <button class="note-action-btn note-copy-link" data-url="${escapeHtml(note.timestampedUrl)}">Copy timestamp</button>
         <button class="note-action-btn note-play" data-seconds="${Number(note.timestampSeconds) || 0}">Play</button>
         <button class="note-action-btn note-sync" type="button">Sync</button>
@@ -2179,12 +2233,14 @@ function renderNotes(notes, filteredVideoId) {
       .addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(
-            getLocalizedPlainText(note.text, "notes", translationId),
+            note.text
+              ? getLocalizedPlainText(note.text, "notes", translationId)
+              : note.personalNote || "",
           );
           const btn = noteEl.querySelector(".note-copy-text");
           btn.textContent = "Copied";
           setTimeout(() => {
-            btn.textContent = "Copy text";
+            btn.textContent = note.text ? "Copy text" : "Copy note";
           }, 2000);
         } catch (err) {
           console.error("Copy failed:", err);

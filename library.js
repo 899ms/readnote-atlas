@@ -8,6 +8,7 @@
   const STORAGE_KEY = "readnote_video_library_v1";
   const WATCHED_THRESHOLD_SECONDS = 10 * 60;
   const MAX_ITEMS = 200;
+  const MAX_PARTIAL_ITEMS = 100;
 
   function finiteNumber(value, fallback = 0) {
     const number = Number(value);
@@ -15,18 +16,21 @@
   }
 
   function normalizeItem(value) {
-    if (!value || typeof value.videoId !== "string" || !value.videoId.trim()) {
+    if (
+      !value ||
+      typeof value.videoId !== "string" ||
+      !/^[A-Za-z0-9_-]{3,128}$/.test(value.videoId.trim())
+    ) {
       return null;
     }
+    const videoId = value.videoId.trim();
     const watchedSeconds = Math.max(0, finiteNumber(value.watchedSeconds));
     return {
-      videoId: value.videoId.trim().slice(0, 128),
+      videoId,
       title: String(value.title || "Untitled video").trim().slice(0, 500),
       channelName: String(value.channelName || "").trim().slice(0, 300),
-      url: String(value.url || `https://www.youtube.com/watch?v=${value.videoId}`),
-      thumbnailUrl: String(
-        value.thumbnailUrl || `https://i.ytimg.com/vi/${value.videoId}/hqdefault.jpg`,
-      ),
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
       duration: Math.max(0, finiteNumber(value.duration)),
       watchedSeconds,
       lastPosition: Math.max(0, finiteNumber(value.lastPosition)),
@@ -49,7 +53,18 @@
       items.push(item);
     }
     items.sort((a, b) => b.lastWatchedAt - a.lastWatchedAt);
-    return { version: 1, items: items.slice(0, MAX_ITEMS) };
+    const qualified = items
+      .filter((item) => item.watchedSeconds >= WATCHED_THRESHOLD_SECONDS)
+      .slice(0, MAX_ITEMS);
+    const partial = items
+      .filter((item) => item.watchedSeconds < WATCHED_THRESHOLD_SECONDS)
+      .slice(0, MAX_PARTIAL_ITEMS);
+    return {
+      version: 1,
+      items: [...qualified, ...partial].sort(
+        (a, b) => b.lastWatchedAt - a.lastWatchedAt,
+      ),
+    };
   }
 
   function recordWatchSample(value, video, watchedDelta, now = Date.now()) {
@@ -98,6 +113,7 @@
     STORAGE_KEY,
     WATCHED_THRESHOLD_SECONDS,
     MAX_ITEMS,
+    MAX_PARTIAL_ITEMS,
     normalize,
     recordWatchSample,
     qualifiedItems,
