@@ -98,6 +98,8 @@ async function requestAiCompletion({
   maxTokens,
   temperature,
   responseFormat,
+  stream = false,
+  onPartial,
   idleTimeoutMs = AI_PROVIDER_IDLE_TIMEOUT_MS,
   hardTimeoutMs = AI_PROVIDER_HARD_TIMEOUT_MS,
 }) {
@@ -118,6 +120,7 @@ async function requestAiCompletion({
   if (responseFormat) {
     body.response_format = responseFormat;
   }
+  if (stream) body.stream = true;
   // Product features need bounded, predictable latency rather than reasoning traces.
   body.thinking = { type: "disabled" };
 
@@ -160,7 +163,9 @@ async function requestAiCompletion({
     // may then send blank-line body chunks while a non-streaming request queues.
     resetIdleTimeout();
 
-    const data = await readBoundedAiResponse(response, resetIdleTimeout);
+    const data = stream && response.ok
+      ? await readBoundedStreamingAiResponse(response, resetIdleTimeout, onPartial)
+      : await readBoundedAiResponse(response, resetIdleTimeout);
     if (!response.ok) {
       const errorData = data && typeof data === "object" ? data : {};
       const error = new Error(
@@ -200,6 +205,60 @@ async function requestAiCompletion({
     clearTimeout(idleTimeoutId);
     clearTimeout(hardTimeoutId);
   }
+}
+
+async function readBoundedStreamingAiResponse(response, onActivity, onPartial) {
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const data = await response.json();
+    onActivity();
+    const text = data.choices?.[0]?.message?.content;
+    if (typeof text === "string" && text) onPartial?.(text);
+    return data;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let responseBytes = 0;
+  const consumeEvent = (eventText) => {
+    const payload = eventText
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n")
+      .trim();
+    if (!payload || payload === "[DONE]") return;
+    const event = JSON.parse(payload);
+    const delta = event.choices?.[0]?.delta?.content;
+    if (typeof delta === "string" && delta) {
+      text += delta;
+      onPartial?.(text);
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    onActivity();
+    responseBytes += value?.byteLength ?? 0;
+    if (responseBytes > AI_PROVIDER_MAX_RESPONSE_BYTES) {
+      await reader.cancel?.().catch(() => {});
+      const error = new Error("DeepSeek response exceeded the 2 MiB limit.");
+      error.code = "AI_RESPONSE_TOO_LARGE";
+      throw error;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    buffer = buffer.replace(/\r\n/g, "\n");
+    let boundary;
+    while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+      consumeEvent(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+    }
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeEvent(buffer);
+  return { choices: [{ message: { content: text } }] };
 }
 
 async function readBoundedAiResponse(response, onActivity) {
@@ -479,7 +538,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "translateOverlayBatch") {
-    handleTranslateOverlayBatch(message.videoId, message.segmentIds)
+    let lastPartialLength = 0;
+    const segmentId = Array.isArray(message.segmentIds) && message.segmentIds.length === 1
+      ? message.segmentIds[0]
+      : "";
+    const onPartial = sender.tab?.id && segmentId
+      ? (translation) => {
+          if (
+            translation.length - lastPartialLength < 2 &&
+            !/[，。！？；：,.!?;:]$/.test(translation)
+          ) return;
+          lastPartialLength = translation.length;
+          Promise.resolve(chrome.tabs.sendMessage?.(sender.tab.id, {
+            action: "subtitleTranslationPartial",
+            videoId: message.videoId,
+            segmentId,
+            generation: message.generation,
+            translation,
+          })).catch(() => {});
+        }
+      : undefined;
+    handleTranslateOverlayBatch(message.videoId, message.segmentIds, { onPartial })
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -1156,7 +1235,7 @@ async function mergeOverlayTranslationsIntoCache(videoId, translationsByKey) {
   }
 }
 
-async function handleTranslateOverlayBatch(videoId, segmentIds) {
+async function handleTranslateOverlayBatch(videoId, segmentIds, { onPartial } = {}) {
   YTD_SETTINGS.canonicalYouTubeUrl(videoId);
   const cacheKey = `digest_${videoId}`;
   const storageKey = ReadnoteTranscript.DISPLAY_MODE_STORAGE_KEY;
@@ -1194,7 +1273,11 @@ async function handleTranslateOverlayBatch(videoId, segmentIds) {
   if (missing.length) {
     const translationInput = missing.map(({ id, text }) => ({ id, text }));
     const result = missing.length === 1
-      ? await handleTranslateLiveSubtitle(translationInput[0], cached.videoTitle || "")
+      ? await handleTranslateLiveSubtitle(
+          translationInput[0],
+          cached.videoTitle || "",
+          onPartial,
+        )
       : await handleTranslateContent(
           { segments: translationInput },
           "transcriptBatch",
@@ -1784,7 +1867,7 @@ function normalizeTranslatedSegmentBatch(parsed, sourceSegments) {
   };
 }
 
-async function handleTranslateLiveSubtitle(segment, videoTitle) {
+async function handleTranslateLiveSubtitle(segment, videoTitle, onPartial) {
   try {
     const [source] = validateTranscriptBatchRequest({ segments: [segment] });
     const langName = "Simplified Chinese";
@@ -1800,7 +1883,9 @@ async function handleTranslateLiveSubtitle(segment, videoTitle) {
     );
     const result = await callAiTranslation(systemPrompt, source.text, {
       temperature: 0.1,
-      maxTokens: 320,
+      maxTokens: 160,
+      stream: true,
+      onPartial,
       idleTimeoutMs: 8_000,
       hardTimeoutMs: 15_000,
     });
@@ -1927,6 +2012,8 @@ async function callAiTranslation(
     temperature = 0.3,
     maxTokens = 8192,
     responseFormat,
+    stream,
+    onPartial,
     idleTimeoutMs,
     hardTimeoutMs,
   } = {},
@@ -1936,6 +2023,8 @@ async function callAiTranslation(
       temperature,
       maxTokens,
       responseFormat,
+      stream,
+      onPartial,
       idleTimeoutMs,
       hardTimeoutMs,
       messages: [

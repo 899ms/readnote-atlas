@@ -148,3 +148,11 @@ YouTube 官方 Data API 的 `captions.download` 支持 `tlang` 自动翻译，�
 - `cache_hit_rate`：逐视频、逐模型版本统计，以验证预取和跨会话缓存是否有效。
 
 这些指标比“同时有多少请求”更接近用户感知；尤其 `subtitle_miss_rate` 与 `seek_recovery_p95` 应作为实时字幕功能的发布门槛。
+
+## 本轮实现状态
+
+- 已实现 P0 当前句独立快车道，并通过 DeepSeek SSE 将生成中的中文增量送到字幕层。
+- 已实现 P1/P2 前向 180 秒窗口：每批 6 段、最多 3 个后台批次并行，完成后持续补水。
+- 已实现 seek generation；跳转后旧请求仍可写缓存，但旧的增量结果不会更新当前画面。
+- 已实现逐视频串行合并缓存写入，避免并发批次最后写入覆盖彼此。
+- 当前 Chrome 环境未暴露内置 `Translator` API，因此本地 NMT provisional 路径保留为后续可选增强，当前版本不依赖它。

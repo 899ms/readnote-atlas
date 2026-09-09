@@ -202,6 +202,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.action === "subtitleTranslationPartial") {
+    if (
+      message.videoId !== currentReadnoteVideoId() ||
+      message.generation !== readnoteSubtitleTranslationGeneration
+    ) {
+      sendResponse({ success: false, stale: true });
+      return false;
+    }
+    const segment = readnoteSubtitleSegments.find(
+      (item) => item.id === message.segmentId,
+    );
+    if (segment && !segment.translation && typeof message.translation === "string") {
+      segment.partialTranslation = message.translation.trim();
+      if (segment.id === readnoteSubtitleActiveId) renderReadnoteSubtitle();
+    }
+    sendResponse({ success: true });
+    return false;
+  }
+
   // Unknown action - still send a response to prevent hanging
   debugLog("[Readnote Studio Content] Unknown action:", message.action);
   sendResponse({ success: false, error: "Unknown action" });
@@ -802,6 +821,7 @@ async function requestReadnoteSubtitleBatch(candidates, lane, generation, startI
     const result = await chrome.runtime.sendMessage({
       action: "translateOverlayBatch",
       videoId,
+      generation,
       segmentIds: candidates.map((segment) => segment.id),
     });
     if (result?.success && Array.isArray(result.translations)) {
@@ -810,7 +830,10 @@ async function requestReadnoteSubtitleBatch(candidates, lane, generation, startI
         result.translations.map((item) => [item.segmentId, item.translation]),
       );
       candidates.forEach((segment) => {
-        if (translated.get(segment.id)) segment.translation = translated.get(segment.id);
+        if (translated.get(segment.id)) {
+          segment.translation = translated.get(segment.id);
+          segment.partialTranslation = "";
+        }
       });
       const missing = candidates.filter((segment) => !segment.translation);
       if (missing.length) {
@@ -924,7 +947,10 @@ function renderReadnoteSubtitle(forcePriorityRefresh = false) {
   original.textContent = ReadnoteTranscript.wrapSubtitle(segment.text);
   chinese.hidden = false;
   chinese.textContent = ReadnoteTranscript.wrapSubtitle(
-    segment.translation || readnoteSubtitleTranslationError || "正在生成中文…",
+    segment.translation ||
+      segment.partialTranslation ||
+      readnoteSubtitleTranslationError ||
+      "正在生成中文…",
   );
   chinese.classList.toggle("is-pending", !segment.translation);
   if (activeChanged || forcePriorityRefresh) {

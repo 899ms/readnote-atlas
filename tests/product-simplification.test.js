@@ -48,6 +48,8 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /MAX_SUBTITLE_PREFETCH_REQUESTS = 3/);
   assert.match(content, /scheduleReadnoteSubtitlePrefetch/);
   assert.match(content, /requestReadnoteActiveTranslation/);
+  assert.match(content, /message\.action === "subtitleTranslationPartial"/);
+  assert.match(content, /message\.generation !== readnoteSubtitleTranslationGeneration/);
   assert.match(background, /handleTranslateOverlayBatch/);
   assert.match(content, /data-style-action="font"/);
   assert.match(content, /data-style-action="smaller"/);
@@ -78,6 +80,7 @@ test("player subtitles prefetch a batch and expose quiet style controls", () => 
   assert.match(content, /\.rn-subtitle-zh \{[^}]*#fff7dc/);
   assert.match(background, /idleTimeoutMs:\s*8_000/);
   assert.match(background, /hardTimeoutMs:\s*15_000/);
+  assert.match(background, /stream:\s*true/);
   assert.doesNotMatch(content, /border:1px dashed/);
 });
 

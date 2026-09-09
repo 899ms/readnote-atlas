@@ -725,31 +725,34 @@ test("DeepSeek retries one empty transcript JSON response without response_forma
 
 test("live player subtitles use the low-latency plain-text translation path", async () => {
   const requests = [];
+  const partials = [];
   const helpers = loadBackgroundHelpers({
     fetchImpl: async (url, options) => {
       if (url.startsWith("chrome-extension://")) {
         return { ok: true, text: async () => read("prompts/translation.md") };
       }
       requests.push(JSON.parse(options.body));
-      return {
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: "这是实时字幕译文。" } }],
-        }),
-      };
+      return streamingResponse([
+        encode('data: {"choices":[{"delta":{"content":"这是"}}]}\n\n'),
+        encode('data: {"choices":[{"delta":{"content":"实时字幕译文。"}}]}\n\n'),
+        encode("data: [DONE]\n\n"),
+      ]);
     },
   });
 
   const result = await helpers.handleTranslateLiveSubtitle(
     { id: "segment-0-0", text: "This is the live subtitle source." },
     "Video",
+    (text) => partials.push(text),
   );
 
   assert.equal(result.success, true);
   assert.equal(result.translatedContent.segments[0].text, "这是实时字幕译文。");
-  assert.equal(requests[0].max_tokens, 320);
+  assert.equal(requests[0].max_tokens, 160);
+  assert.equal(requests[0].stream, true);
   assert.equal(Object.hasOwn(requests[0], "response_format"), false);
   assert.match(requests[0].messages[0].content, /live subtitle/i);
+  assert.deepEqual(partials, ["这是", "这是实时字幕译文。"]);
 });
 
 test("concurrent subtitle batches merge cache writes without losing translations", async () => {
