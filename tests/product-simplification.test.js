@@ -45,11 +45,12 @@ test("Overview is one comprehensive Chinese discussion summary", () => {
   assert.match(panel, />Chinese Overview</);
 });
 
-test("Library stays reachable without a loaded digest", () => {
+test("Library has one tab entry and no duplicate header action", () => {
   const panel = read("sidepanel.html");
   const panelScript = read("sidepanel.js");
   const css = read("sidepanel.css");
-  assert.match(panel, /id="libraryBtn"/);
+  assert.equal((panel.match(/data-tab="library"/g) || []).length, 1);
+  assert.doesNotMatch(panel, /id="libraryBtn"/);
   assert.match(panelScript, /function openLibraryView/);
   assert.match(panelScript, /tabs\?\.classList\.toggle\("library-only", !currentTranscript\)/);
   assert.match(css, /\.tabs\.library-only/);

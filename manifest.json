@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Readnote Atlas",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "minimum_chrome_version": "116",
   "description": "Read English articles and videos with bilingual context, highlights, transcripts, and a personal knowledge base.",
   "permissions": ["sidePanel", "storage", "tabs", "scripting"],
@@ -9,7 +9,15 @@
     "https://www.youtube.com/*",
     "https://api.supadata.ai/*",
     "https://api.deepseek.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://openrouter.ai/*",
     "http://127.0.0.1:8791/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "action": {
     "default_title": "Open Readnote Atlas",

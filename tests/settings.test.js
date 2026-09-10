@@ -1,54 +1,84 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-
 const settings = require("../settings.js");
 
-test("DeepSeek defaults use V4 Flash", () => {
+test("provider profiles normalize independently and expose the active profile", () => {
   const normalized = settings.normalize({
-    provider: "unexpected",
-    aiApiKey: "  example-key  ",
-    aiBaseUrl: "https://api.example.com/v1",
-    aiModel: "example-model",
-    supadataApiKey: "  example-supadata  ",
+    provider: "openai",
+    supadataApiKey: " supadata ",
+    providerConfigs: {
+      deepseek: { apiKey: "deep-key", model: "deep-model" },
+      openai: { apiKey: " open-key ", model: "gpt-custom" },
+    },
   });
-
-  assert.equal(normalized.provider, "deepseek");
-  assert.equal(normalized.aiBaseUrl, "https://api.deepseek.com");
-  assert.equal(normalized.aiModel, "deepseek-v4-flash");
-  assert.equal(normalized.aiApiKey, "example-key");
-  assert.equal(normalized.supadataApiKey, "example-supadata");
+  assert.equal(normalized.provider, "openai");
+  assert.equal(normalized.aiApiKey, "open-key");
+  assert.equal(normalized.aiBaseUrl, "https://api.openai.com/v1");
+  assert.equal(normalized.aiModel, "gpt-custom");
+  assert.equal(normalized.providerConfigs.deepseek.apiKey, "deep-key");
+  assert.equal(normalized.supadataApiKey, "supadata");
+  assert.deepEqual(Object.keys(settings.serialize(normalized)).sort(), [
+    "provider",
+    "providerConfigs",
+    "supadataApiKey",
+  ]);
   assert.equal(
-    settings.chatCompletionsUrl(),
-    "https://api.deepseek.com/chat/completions",
+    settings.chatCompletionsUrl(normalized),
+    "https://api.openai.com/v1/chat/completions",
   );
 });
 
-test("legacy custom migration clears only the AI key and is idempotent", () => {
-  const legacy = {
+test("legacy single-provider settings migrate without losing secrets", () => {
+  const first = settings.migrateLegacySettings({
     provider: "custom",
     aiApiKey: "custom-secret",
     aiBaseUrl: "https://api.example.com/v1",
     aiModel: "example-model",
     supadataApiKey: " supadata-secret ",
-  };
-  const first = settings.migrateLegacyCustom(legacy);
-
+  });
   assert.equal(first.migrated, true);
-  assert.equal(first.settings.provider, "deepseek");
-  assert.equal(first.settings.aiBaseUrl, settings.DEFAULTS.aiBaseUrl);
-  assert.equal(first.settings.aiModel, settings.DEFAULTS.aiModel);
-  assert.equal(first.settings.aiApiKey, "");
-  assert.equal(first.settings.supadataApiKey, "supadata-secret");
-
-  const second = settings.migrateLegacyCustom(first.settings);
+  assert.equal(first.settings.provider, "custom");
+  assert.equal(first.settings.aiApiKey, "custom-secret");
+  assert.equal(first.settings.aiBaseUrl, "https://api.example.com/v1");
+  assert.equal(first.settings.providerConfigs.custom.model, "example-model");
+  const second = settings.migrateLegacySettings(first.settings);
   assert.equal(second.migrated, false);
   assert.deepEqual(second.settings, first.settings);
+});
 
-  const configuredDeepSeek = settings.normalize({
-    ...first.settings,
-    aiApiKey: "new-deepseek-key",
+test("provider catalog includes first-party presets plus a custom endpoint", () => {
+  assert.equal(settings.providerLabel("deepseek"), "DeepSeek");
+  assert.equal(settings.providerLabel("gemini"), "Google Gemini");
+  const custom = settings.normalize({
+    provider: "custom",
+    providerConfigs: {
+      custom: {
+        apiKey: "key",
+        baseUrl: "https://api.vendor.test/v1/",
+        model: "vendor-model",
+      },
+    },
   });
-  assert.equal(configuredDeepSeek.aiApiKey, "new-deepseek-key");
+  assert.equal(custom.aiBaseUrl, "https://api.vendor.test/v1");
+  assert.equal(settings.hostPermissionPattern(custom), "https://api.vendor.test/*");
+});
+
+test("base URL normalization removes query and hash before endpoint joining", () => {
+  const custom = settings.normalize({
+    provider: "custom",
+    providerConfigs: {
+      custom: {
+        apiKey: "key",
+        baseUrl: "https://api.vendor.test/v1/?token=unsafe#fragment",
+        model: "vendor-model",
+      },
+    },
+  });
+  assert.equal(custom.aiBaseUrl, "https://api.vendor.test/v1");
+  assert.equal(
+    settings.chatCompletionsUrl(custom),
+    "https://api.vendor.test/v1/chat/completions",
+  );
 });
 
 test("Supadata receives a canonical YouTube URL", () => {
@@ -56,8 +86,5 @@ test("Supadata receives a canonical YouTube URL", () => {
     settings.canonicalYouTubeUrl("ydTeb_I0b94"),
     "https://www.youtube.com/watch?v=ydTeb_I0b94",
   );
-  assert.throws(
-    () => settings.canonicalYouTubeUrl('"><script>'),
-    /Invalid YouTube video ID/,
-  );
+  assert.throws(() => settings.canonicalYouTubeUrl('\"><script>'), /Invalid YouTube video ID/);
 });

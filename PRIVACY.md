@@ -26,7 +26,7 @@ Browser requests are accepted only from the companion's own loopback pages or Ch
 ## External services
 
 - **Supadata:** receives the canonical YouTube watch URL and the user's Supadata key to return a native timestamped transcript.
-- **DeepSeek:** receives the transcript segments or video context needed for a requested translation, overview, explanation, or note-cleanup action.
+- **Selected video AI provider:** DeepSeek, OpenAI, Google Gemini, OpenRouter, or a user-configured OpenAI-compatible endpoint receives the transcript segments or video context needed for a requested translation, overview, explanation, or note-cleanup action.
 - **Optional article translation provider:** DeepSeek, OpenAI, or MiniMax receives only the article paragraphs requested through the companion.
 - **Optional Notion sync:** Notion receives only the excerpt, note context, and source link being saved to the configured page.
 
@@ -38,7 +38,7 @@ These providers process data under their own terms, privacy policies, retention 
 - `storage`: keep settings, annotations, notes, transcripts, watched-video progress, and caches locally.
 - `tabs` and `scripting`: identify the active YouTube video and coordinate playback actions.
 - HTTP/HTTPS content script access: add the article reading and annotation layer.
-- Host access to YouTube, Supadata, DeepSeek, and `127.0.0.1:8791`: provide the documented product flows.
+- Host access to YouTube, Supadata, the selected built-in AI provider, and `127.0.0.1:8791`: provide the documented product flows. A custom endpoint requests access only to its configured origin when the user saves that profile.
 
 ## Removing data
 

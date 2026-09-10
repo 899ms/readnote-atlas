@@ -7,152 +7,104 @@
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
+    <nav class="topbar" aria-label="Settings navigation">
+      <button class="back-button" id="backBtn" type="button" aria-label="Close settings and return">
+        <span aria-hidden="true">←</span> Back
+      </button>
+      <span class="wordmark"><span class="wordmark-mark" aria-hidden="true"></span>Readnote Atlas</span>
+    </nav>
+
     <main class="settings-shell">
-      <header>
-        <div class="settings-heading-row">
-          <div class="eyebrow">Readnote Atlas</div>
-        </div>
-        <h1 data-i18n="heading">Bring your own API keys</h1>
-        <p class="lede" data-i18n="lede">
-          Keys stay in this Chrome profile and are sent only to Supadata and
-          DeepSeek. This open-source extension has no developer server or
-          analytics.
-        </p>
+      <header class="page-header">
+        <div class="eyebrow">Settings</div>
+        <h1>Services</h1>
+        <p>Connect the providers you trust. Keys stay in this Chrome profile.</p>
       </header>
 
       <form id="settingsForm">
-        <section class="card">
-          <h2 data-i18n="transcriptProvider">Transcript provider</h2>
-          <label for="supadataApiKey" data-i18n="supadataApiKeyLabel"
-            >Supadata API key</label
-          >
-          <input
-            id="supadataApiKey"
-            name="supadataApiKey"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Paste your Supadata key"
-          />
-          <p class="help">
-            <span data-i18n="supadataHelp"
-              >Used to fetch timestamped YouTube subtitles.</span
-            >
-            <a
-              href="https://dash.supadata.ai/auth/sign-up"
-              target="_blank"
-              rel="noreferrer"
-              data-i18n="supadataLink"
-              >Create a Supadata account and key</a
-            ><span data-i18n="supadataHelpSuffix"
-              >. Supadata generates the key during onboarding.</span
-            >
-          </p>
-        </section>
-
-        <section class="card">
-          <h2 data-i18n="aiProvider">AI provider</h2>
-          <div
-            class="provider-summary"
-            aria-label="Supported AI provider"
-            data-i18n-aria-label="providerSummaryLabel"
-          >
-            <span class="provider-name">DeepSeek V4 Flash</span>
-            <span class="provider-badge" data-i18n="providerBadge"
-              >Supported in this version</span
-            >
+        <section class="settings-section">
+          <div class="section-heading">
+            <div>
+              <h2>Transcript</h2>
+              <p>Timestamped captions for video reading.</p>
+            </div>
+            <span class="step-number">01</span>
           </div>
-
-          <label for="aiApiKey" data-i18n="deepseekApiKeyLabel"
-            >DeepSeek API key</label
-          >
-          <input
-            id="aiApiKey"
-            name="aiApiKey"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Paste your DeepSeek key"
-          />
-          <p class="help">
-            <span data-i18n="deepseekHelp"
-              >Readnote Atlas uses DeepSeek V4 Flash for overviews,
-              explanations, translation, and note polishing.</span
-            >
-            <a
-              href="https://platform.deepseek.com/api_keys"
-              target="_blank"
-              rel="noreferrer"
-              data-i18n="deepseekLink"
-              >Create a DeepSeek API key</a
-            ><span data-i18n="deepseekHelpSuffix">.</span>
-          </p>
-          <div class="privacy-note" data-i18n="privacyNote">
-            When you use AI features, DeepSeek receives the video transcript
-            and relevant video context. Review DeepSeek's terms and pricing
-            before saving.
+          <div class="field">
+            <label for="supadataApiKey">Supadata API key</label>
+            <input id="supadataApiKey" name="supadataApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Supadata key" />
+            <p class="field-help">Used only to fetch YouTube captions. <a href="https://dash.supadata.ai/auth/sign-up" target="_blank" rel="noreferrer">Get a key</a></p>
           </div>
         </section>
 
-        <div class="form-actions">
-          <button class="primary" type="submit" data-i18n="saveSettings">
-            Save settings
-          </button>
+        <section class="settings-section">
+          <div class="section-heading">
+            <div>
+              <h2>AI provider</h2>
+              <p>Choose the active provider. Each profile keeps its own key and model.</p>
+            </div>
+            <span class="step-number">02</span>
+          </div>
+
+          <div class="field">
+            <label for="providerSelect">Provider</label>
+            <select id="providerSelect" name="provider"></select>
+            <p class="field-help" id="providerHelp"></p>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="aiApiKey">API key</label>
+              <input id="aiApiKey" name="aiApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste this provider's key" />
+            </div>
+            <div class="field">
+              <label for="aiModel">Model</label>
+              <input id="aiModel" name="aiModel" type="text" autocomplete="off" spellcheck="false" placeholder="Model ID" />
+            </div>
+          </div>
+          <div class="field" id="baseUrlField" hidden>
+            <label for="aiBaseUrl">Base URL</label>
+            <input id="aiBaseUrl" name="aiBaseUrl" type="url" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" />
+            <p class="field-help">Readnote Atlas will request access only to this origin.</p>
+          </div>
+          <a class="provider-link" id="providerKeyLink" target="_blank" rel="noreferrer">Create an API key ↗</a>
+          <p class="privacy-note">The active provider receives only the transcript or passage needed for the feature you use.</p>
+        </section>
+
+        <div class="save-row">
+          <button class="primary" type="submit">Save changes</button>
           <span id="saveStatus" role="status" aria-live="polite"></span>
         </div>
       </form>
 
-      <section class="card knowledge-card">
-        <div class="knowledge-card-heading">
-          <div>
-            <div class="eyebrow">Knowledge base</div>
-            <h2>Send every saved excerpt to your own library</h2>
+      <details class="secondary-section">
+        <summary>
+          <span><strong>Knowledge &amp; local data</strong><small>Obsidian, Notion, cache and notes</small></span>
+          <span class="summary-icon" aria-hidden="true">+</span>
+        </summary>
+        <div class="secondary-content">
+          <div class="secondary-block">
+            <div class="secondary-title"><h3>Knowledge base</h3><span id="knowledgeStatus">Checking companion…</span></div>
+            <p>Send saved article highlights and timestamped video notes to Obsidian or Notion through the local companion.</p>
+            <div class="inline-actions">
+              <a class="button-link" href="http://127.0.0.1:8791/setup" target="_blank">Configure</a>
+              <a href="http://127.0.0.1:8791/" target="_blank">View status</a>
+            </div>
           </div>
-          <span class="knowledge-status" id="knowledgeStatus">Checking companion…</span>
+          <div class="secondary-block">
+            <h3>Local data</h3>
+            <p>Digests, translations and notes are stored in this Chrome profile.</p>
+            <div class="inline-actions">
+              <button id="clearCacheBtn" type="button">Clear cache</button>
+              <button id="clearNotesBtn" type="button">Delete notes</button>
+              <button id="resetBtn" class="danger" type="button">Reset all data</button>
+            </div>
+            <span id="dataStatus" role="status" aria-live="polite"></span>
+          </div>
         </div>
-        <p class="help">
-          The local companion appends article highlights and timestamped video
-          notes to one Obsidian Markdown notebook and, optionally, a Notion page.
-          Your paths and Notion token stay in <code>.env.local</code> on this Mac.
-        </p>
-        <div class="knowledge-actions">
-          <a class="button-link primary" href="http://127.0.0.1:8791/setup" target="_blank">Configure Obsidian &amp; Notion</a>
-          <a class="button-link" href="http://127.0.0.1:8791/" target="_blank">View companion status</a>
-        </div>
-        <p class="help knowledge-command">Start it from the project folder with <code>npm run companion</code>.</p>
-      </section>
+      </details>
 
-      <section class="card data-card">
-        <h2 data-i18n="localData">Local data</h2>
-        <p class="help" data-i18n="localDataHelp">
-          Digests, translations, and notes are stored only in this Chrome
-          profile. You can remove them at any time.
-        </p>
-        <div class="data-actions">
-          <button id="clearCacheBtn" type="button" data-i18n="clearCache">
-            Clear cached digests
-          </button>
-          <button id="clearNotesBtn" type="button" data-i18n="deleteNotes">
-            Delete all notes
-          </button>
-          <button
-            id="resetBtn"
-            class="danger"
-            type="button"
-            data-i18n="resetData"
-          >
-            Reset extension data
-          </button>
-        </div>
-        <span id="dataStatus" role="status" aria-live="polite"></span>
-      </section>
-
-      <footer data-i18n-html="footer">
-        Read <a href="PRIVACY.md" target="_blank">PRIVACY.md</a> in the
-        repository for the complete data-flow description.
-      </footer>
+      <footer>Open source · Local first · <a href="PRIVACY.md" target="_blank">Privacy</a></footer>
     </main>
-
     <script src="settings.js"></script>
     <script src="options.js"></script>
   </body>

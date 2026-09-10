@@ -434,10 +434,6 @@ function setupEventListeners() {
   document.getElementById("settingsBtn")?.addEventListener("click", () => {
     chrome.runtime.sendMessage({ action: "openOptions" });
   });
-  document.getElementById("libraryBtn")?.addEventListener("click", () => {
-    openLibraryView();
-  });
-
   // Transcript actions
   document
     .getElementById("copyTranscriptBtn")

@@ -52,7 +52,7 @@ See [PRODUCT.md](PRODUCT.md) for the product brief and [the real-time subtitle a
 
 ## Install for development
 
-Requirements: Chrome 116+, Node.js 22.19+, a Supadata API key for YouTube transcripts, and a DeepSeek API key for video translation and AI features.
+Requirements: Chrome 116+, Node.js 22.19+, a Supadata API key for YouTube transcripts, and an API key from one supported AI provider.
 
 ```bash
 git clone https://github.com/pheobepotato/readnote-atlas.git
@@ -68,7 +68,7 @@ Then:
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Choose **Load unpacked** and select the repository folder.
-4. Open **Readnote Atlas Settings** and enter your own Supadata and DeepSeek keys.
+4. Open **Readnote Atlas Settings**, enter your Supadata key, and choose DeepSeek, OpenAI, Google Gemini, OpenRouter, or a custom OpenAI-compatible endpoint.
 
 Never paste API keys into source code, GitHub, screenshots, or chat.
 
@@ -94,7 +94,7 @@ The companion stores secrets in `.env.local`, which is ignored by Git. Article e
 - Article translation and knowledge sync go through the local companion at `127.0.0.1:8791`.
 - The companion writes only to the Markdown file and Notion page you configure.
 - Supadata receives a canonical YouTube URL when a transcript is requested.
-- DeepSeek receives only the content needed for the requested translation or AI feature.
+- Your active AI provider receives only the content needed for the requested translation or AI feature. Provider profiles and keys remain in local Chrome storage.
 - There is no Readnote Atlas account, analytics SDK, advertising, or developer-operated cloud server.
 
 See [PRIVACY.md](PRIVACY.md) for the complete description.
@@ -106,7 +106,7 @@ npm run build       # compile the article reader content script
 npm test            # run unit and product-contract tests
 npm run typecheck   # check the TypeScript article reader
 npm run check       # build, typecheck, test, and audit the release set
-npm run package     # create dist/readnote-atlas-v0.2.1.zip
+npm run package     # create dist/readnote-atlas-v0.3.0.zip
 npm run companion   # start the local knowledge companion
 ```
 
@@ -114,7 +114,7 @@ npm run companion   # start the local knowledge companion
 
 - YouTube Shorts, live streams, private videos, and videos without native captions are not supported.
 - The player subtitle layer fetches and caches native captions automatically; opening the side panel is optional.
-- YouTube features currently use Supadata and DeepSeek. Article translation can use DeepSeek, OpenAI, or MiniMax through the companion.
+- YouTube AI features support DeepSeek, OpenAI, Google Gemini, OpenRouter, and custom OpenAI-compatible endpoints. Article translation can use DeepSeek, OpenAI, or MiniMax through the companion.
 - Chrome is the supported browser for this first release.
 
 ## Origins and attribution

@@ -54,7 +54,7 @@ Readnote Atlas 是一个面向中文母语读者的 local-first Chrome 扩展。
 
 ## 本地安装与开发
 
-需要 Chrome 116+、Node.js 22.19+、用于获取 YouTube transcript 的 Supadata API Key，以及用于视频翻译和 AI 功能的 DeepSeek API Key。
+需要 Chrome 116+、Node.js 22.19+、用于获取 YouTube transcript 的 Supadata API Key，以及任一受支持 AI provider 的 API Key。
 
 ```bash
 git clone https://github.com/pheobepotato/readnote-atlas.git
@@ -70,7 +70,7 @@ npm run check
 1. 打开 `chrome://extensions`；
 2. 开启“开发者模式”；
 3. 点击“加载已解压的扩展程序”，选择仓库文件夹；
-4. 进入 **Readnote Atlas Settings**，自行填写 Supadata 和 DeepSeek Key。
+4. 进入 **Readnote Atlas Settings**，填写 Supadata Key，并选择 DeepSeek、OpenAI、Google Gemini、OpenRouter 或自定义 OpenAI-compatible endpoint。
 
 请勿把 API Key 放进源代码、GitHub、截图或聊天记录。
 
@@ -96,7 +96,7 @@ Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录�
 - 文章翻译和知识库同步请求通过 `127.0.0.1:8791` 的本地 companion 完成；
 - Companion 只写入你配置的 Markdown 文件和 Notion 页面；
 - 获取视频 transcript 时，Supadata 只收到标准化后的 YouTube URL；
-- DeepSeek 只收到当前翻译或 AI 功能所需的内容；
+- 当前启用的 AI provider 只收到翻译或 AI 功能所需的内容；各 provider profile 和 Key 均保存在 Chrome 本地；
 - 没有 Readnote Atlas 账号、分析 SDK、广告或开发者运营的云端服务。
 
 完整说明见 [PRIVACY.md](PRIVACY.md)。
@@ -105,7 +105,7 @@ Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录�
 
 - 暂不支持 YouTube Shorts、直播、私密视频以及没有原生字幕的视频；
 - 播放器字幕会自动获取并缓存原生字幕，无需先打开侧边栏；
-- 视频能力当前使用 Supadata 和 DeepSeek；文章翻译可通过 companion 使用 DeepSeek、OpenAI 或 MiniMax；
+- 视频 AI 能力支持 DeepSeek、OpenAI、Google Gemini、OpenRouter 和自定义 OpenAI-compatible endpoint；文章翻译可通过 companion 使用 DeepSeek、OpenAI 或 MiniMax；
 - 第一版仅支持 Chrome。
 
 ## 项目来源与致谢

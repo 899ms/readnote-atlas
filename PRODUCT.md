@@ -31,7 +31,8 @@ The loop is identical for text and video. A video timestamp plays the same role 
   - Transcript: complete, searchable, bilingual, playback-aware semantic paragraphs.
   - Library: videos with at least ten minutes of cumulative foreground playback.
 - **Settings**
-  - Video providers: Supadata and DeepSeek.
+  - Transcript provider: Supadata.
+  - Switchable video AI profiles: DeepSeek, OpenAI, Google Gemini, OpenRouter, or a custom OpenAI-compatible endpoint.
   - Personal knowledge base: local companion, Obsidian path, optional Notion page.
   - Local data controls and privacy explanation.
 

@@ -32,21 +32,11 @@ function createLocalStorage() {
 test("Settings copy is English-only", () => {
   assert.equal(options.translate("en", "pageTitle"), "Readnote Atlas Settings");
   assert.equal(options.translate("zh-CN", "pageTitle"), "Readnote Atlas Settings");
-  assert.equal(options.translate("en", "saveSettings"), "Save settings");
-  assert.equal(
-    options.translate("zh-CN", "clearedDigests", { count: 2 }),
-    "Cleared 2 cached digests.",
-  );
+  assert.equal(options.translate("en", "saveSettings"), "Save changes");
 
   assert.deepEqual(Object.keys(options.COPY), ["en"]);
 
   const html = read("options.html");
-  const referencedKeys = [
-    ...html.matchAll(/data-i18n(?:-html|-aria-label)?="([^"]+)"/g),
-  ].map((match) => match[1]);
-  for (const key of referencedKeys) {
-    assert.ok(options.COPY.en[key], `Missing English copy for ${key}`);
-  }
   assert.doesNotMatch(JSON.stringify(options.COPY), /[\p{Script=Han}]/u);
   assert.doesNotMatch(JSON.stringify(options.COPY), /—/);
   assert.doesNotMatch(html, /—/);
@@ -71,10 +61,28 @@ test("Settings has no interface language switch", () => {
 test("Settings stays focused on providers, knowledge destinations, and local data", () => {
   const html = read("options.html");
   assert.match(html, /placeholder="Paste your Supadata key"/);
-  assert.match(html, /placeholder="Paste your DeepSeek key"/);
+  assert.match(html, /id="providerSelect"/);
+  assert.match(html, /id="aiModel"/);
+  assert.match(html, /id="backBtn"/);
   assert.match(html, /https:\/\/dash\.supadata\.ai\/auth\/sign-up/);
-  assert.match(html, /https:\/\/platform\.deepseek\.com\/api_keys/);
   assert.match(html, /Knowledge base/);
-  assert.match(html, /data-i18n="localData"/);
+  assert.match(html, /Local data/);
   assert.doesNotMatch(html, /coding agent|customizationPrompt/i);
+});
+
+test("Settings offers separate AI vendor profiles and custom origin permission", () => {
+  const settings = require("../settings.js");
+  assert.deepEqual(Object.keys(settings.PROVIDERS), [
+    "deepseek",
+    "openai",
+    "gemini",
+    "openrouter",
+    "custom",
+  ]);
+  const html = read("options.html");
+  const script = read("options.js");
+  assert.match(html, /Each profile keeps its own key and model/);
+  assert.match(script, /requestProviderPermission/);
+  assert.doesNotMatch(script, /permissions\.contains/);
+  assert.match(script, /providerConfigs/);
 });

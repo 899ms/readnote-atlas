@@ -4,7 +4,7 @@
  * This is the "brain" of the extension. It runs in the background and handles:
  * 1. Opening the side panel when the user clicks the extension icon
  * 2. Fetching YouTube transcripts via Supadata API
- * 3. Calling DeepSeek to analyze the transcript
+ * 3. Calling the configured AI provider to analyze the transcript
  * 4. Sending results back to the side panel
  *
  * Think of it like a backend server — it does the heavy lifting
@@ -131,9 +131,10 @@ async function requestAiCompletion({
   hardTimeoutMs = AI_PROVIDER_HARD_TIMEOUT_MS,
 }) {
   const settings = await getSettings();
+  const providerName = YTD_SETTINGS.providerLabel(settings.provider);
   if (!settings.aiApiKey) {
     const error = new Error(
-      "DeepSeek API key not configured. Open Readnote Atlas Settings.",
+      `${providerName} API key not configured. Open Readnote Atlas Settings.`,
     );
     error.code = "NO_AI_KEY";
     throw error;
@@ -148,8 +149,11 @@ async function requestAiCompletion({
     body.response_format = responseFormat;
   }
   if (stream) body.stream = true;
-  // Product features need bounded, predictable latency rather than reasoning traces.
-  body.thinking = { type: "disabled" };
+  // DeepSeek accepts an explicit switch that prevents reasoning traces. Other
+  // OpenAI-compatible vendors must not receive provider-specific fields.
+  if (YTD_SETTINGS.PROVIDERS[settings.provider]?.disableThinking) {
+    body.thinking = { type: "disabled" };
+  }
 
   const controller = new AbortController();
   let timeoutKind = "";
@@ -175,7 +179,7 @@ async function requestAiCompletion({
   resetIdleTimeout();
   try {
     const response = await fetch(
-      YTD_SETTINGS.chatCompletionsUrl(),
+      YTD_SETTINGS.chatCompletionsUrl(settings),
       {
         method: "POST",
         headers: {
@@ -186,8 +190,7 @@ async function requestAiCompletion({
         signal: controller.signal,
       },
     );
-    // Receiving headers proves DeepSeek is still making progress. DeepSeek
-    // may then send blank-line body chunks while a non-streaming request queues.
+    // Receiving headers proves the provider is still making progress.
     resetIdleTimeout();
 
     const data = stream && response.ok
@@ -198,7 +201,7 @@ async function requestAiCompletion({
       const error = new Error(
         errorData.error?.message ||
           errorData.message ||
-          `DeepSeek error: ${response.status}`,
+          `${providerName} error: ${response.status}`,
       );
       error.status = response.status;
       throw error;
@@ -206,7 +209,7 @@ async function requestAiCompletion({
 
     const text = data.choices?.[0]?.message?.content;
     if (typeof text !== "string" || !text.trim()) {
-      const error = new Error("DeepSeek returned an empty response.");
+      const error = new Error(`${providerName} returned an empty response.`);
       error.code = "EMPTY_AI_RESPONSE";
       throw error;
     }
@@ -215,14 +218,14 @@ async function requestAiCompletion({
   } catch (error) {
     if (timeoutKind === "idle") {
       const timeoutError = new Error(
-        `DeepSeek request was inactive for ${Math.round(idleTimeoutMs / 1000)} seconds. Please Retry.`,
+        `${providerName} request was inactive for ${Math.round(idleTimeoutMs / 1000)} seconds. Please Retry.`,
       );
       timeoutError.code = "AI_IDLE_TIMEOUT";
       throw timeoutError;
     }
     if (timeoutKind === "hard") {
       const timeoutError = new Error(
-        `DeepSeek request exceeded the ${Math.round(hardTimeoutMs / 1000)}-second limit. Please Retry.`,
+        `${providerName} request exceeded the ${Math.round(hardTimeoutMs / 1000)}-second limit. Please Retry.`,
       );
       timeoutError.code = "AI_HARD_TIMEOUT";
       throw timeoutError;
@@ -271,7 +274,7 @@ async function readBoundedStreamingAiResponse(response, onActivity, onPartial) {
     responseBytes += value?.byteLength ?? 0;
     if (responseBytes > AI_PROVIDER_MAX_RESPONSE_BYTES) {
       await reader.cancel?.().catch(() => {});
-      const error = new Error("DeepSeek response exceeded the 2 MiB limit.");
+      const error = new Error("AI provider response exceeded the 2 MiB limit.");
       error.code = "AI_RESPONSE_TOO_LARGE";
       throw error;
     }
@@ -297,13 +300,13 @@ async function readBoundedAiResponse(response, onActivity) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      // Every received chunk is activity, including DeepSeek's blank lines.
+      // Every received chunk is activity, including blank keepalive chunks.
       onActivity();
       const byteLength = value?.byteLength ?? 0;
       responseBytes += byteLength;
       if (responseBytes > AI_PROVIDER_MAX_RESPONSE_BYTES) {
         await reader.cancel?.().catch(() => {});
-        const error = new Error("DeepSeek response exceeded the 2 MiB limit.");
+        const error = new Error("AI provider response exceeded the 2 MiB limit.");
         error.code = "AI_RESPONSE_TOO_LARGE";
         throw error;
       }
@@ -320,7 +323,7 @@ async function readBoundedAiResponse(response, onActivity) {
     onActivity();
     const byteLength = new TextEncoder().encode(responseText).byteLength;
     if (byteLength > AI_PROVIDER_MAX_RESPONSE_BYTES) {
-      const error = new Error("DeepSeek response exceeded the 2 MiB limit.");
+      const error = new Error("AI provider response exceeded the 2 MiB limit.");
       error.code = "AI_RESPONSE_TOO_LARGE";
       throw error;
     }
@@ -1085,13 +1088,15 @@ async function handleAnalyzeTranscript(
   videoDescription,
   videoDuration,
 ) {
+  let providerName = "AI provider";
   try {
     const settings = await getSettings();
+    providerName = YTD_SETTINGS.providerLabel(settings.provider);
     if (!settings.aiApiKey) {
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "DeepSeek API key not configured. Open Readnote Atlas Settings.",
+        message: `${providerName} API key not configured. Open Readnote Atlas Settings.`,
       };
     }
 
@@ -1137,14 +1142,14 @@ async function handleAnalyzeTranscript(
       return {
         success: false,
         error: "INVALID_AI_KEY",
-        message: "DeepSeek rejected the API key.",
+        message: `${providerName} rejected the API key.`,
       };
     }
     if (error.status === 429) {
       return {
         success: false,
         error: "RATE_LIMITED",
-        message: "DeepSeek rate-limited this request. Try again shortly.",
+        message: `${providerName} rate-limited this request. Try again shortly.`,
       };
     }
     return {
@@ -1910,11 +1915,12 @@ async function handleExplainSelection(
 ) {
   try {
     const settings = await getSettings();
+    const providerName = YTD_SETTINGS.providerLabel(settings.provider);
     if (!settings.aiApiKey) {
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "DeepSeek API key not configured.",
+        message: `${providerName} API key not configured.`,
       };
     }
 
@@ -2097,7 +2103,7 @@ async function handleTranslateLiveSubtitle(segment, videoTitle, onPartial) {
 }
 
 /**
- * Translates content using DeepSeek.
+ * Translates content using the configured AI provider.
  * @param {Object} content - JSON object containing semantic transcript segments
  * @param {string} contentType - 'transcriptBatch' or 'interfaceBatch'
  * @param {string} targetLanguage - 'zh' for Simplified Chinese
@@ -2125,8 +2131,9 @@ async function handleTranslateContent(
     }
 
     const settings = await getSettings();
+    const providerName = YTD_SETTINGS.providerLabel(settings.provider);
     if (!settings.aiApiKey) {
-      return { success: false, error: "DeepSeek API key not configured" };
+      return { success: false, error: `${providerName} API key not configured` };
     }
 
     const sourceSegments = validateTranscriptBatchRequest(content);
@@ -2157,7 +2164,7 @@ async function handleTranslateContent(
       translationOptions,
     );
 
-    // DeepSeek JSON mode can rarely return an empty content string. The prompt
+    // JSON mode can rarely return an empty content string. The prompt
     // already requires JSON, so retry once without response_format.
     if (!result.success && result.code === "EMPTY_AI_RESPONSE") {
       result = await callAiTranslation(systemPrompt, userContent, {
@@ -2183,7 +2190,7 @@ async function handleTranslateContent(
 }
 
 /**
- * Makes a single DeepSeek call for translation.
+ * Makes a single configured-provider call for translation.
  * Uses temperature 0.3 for consistent, predictable translations.
  *
  * @param {string} systemPrompt - The system-level instructions

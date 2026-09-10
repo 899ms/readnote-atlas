@@ -133,8 +133,10 @@ function loadBackgroundHelpers({
     },
     YTD_SETTINGS: {
       STORAGE_KEY: "ytd_settings",
+      PROVIDERS: { deepseek: { disableThinking: true }, openai: {} },
       normalize: (value) => value,
-      chatCompletionsUrl: (baseUrl) => `${baseUrl}/chat/completions`,
+      providerLabel: (provider) => provider === "deepseek" ? "DeepSeek" : "AI provider",
+      chatCompletionsUrl: (value) => `${value.aiBaseUrl}/chat/completions`,
       canonicalYouTubeUrl: (videoId) =>
         `https://www.youtube.com/watch?v=${videoId}`,
     },
@@ -565,7 +567,10 @@ test("all AI product requests use DeepSeek non-thinking and JSON behavior", asyn
     (backgroundSource.match(/await requestAiCompletion\(\{/g) || []).length,
     4,
   );
-  assert.doesNotMatch(backgroundSource, /disableThinking/);
+  assert.match(
+    backgroundSource,
+    /YTD_SETTINGS\.PROVIDERS\[settings\.provider\]\?\.disableThinking/,
+  );
   for (const callPath of [
     "handleAnalyzeTranscript",
     "cleanupNoteText",
@@ -577,6 +582,34 @@ test("all AI product requests use DeepSeek non-thinking and JSON behavior", asyn
       new RegExp(`async function ${callPath}\\([\\s\\S]*?requestAiCompletion\\(\\{`),
     );
   }
+});
+
+test("non-DeepSeek providers receive only portable Chat Completions fields", async () => {
+  const requests = [];
+  const urls = [];
+  const helpers = loadBackgroundHelpers({
+    settings: {
+      provider: "openai",
+      aiApiKey: "openai-key",
+      aiBaseUrl: "https://api.openai.com/v1",
+      aiModel: "gpt-4.1-mini",
+    },
+    fetchImpl: async (url, options) => {
+      urls.push(url);
+      requests.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "done" } }] }),
+      };
+    },
+  });
+  const result = await helpers.requestAiCompletion({
+    maxTokens: 64,
+    messages: [{ role: "user", content: "Hello." }],
+  });
+  assert.equal(result.text, "done");
+  assert.equal(urls[0], "https://api.openai.com/v1/chat/completions");
+  assert.equal(Object.hasOwn(requests[0], "thinking"), false);
 });
 
 test("blank-line chunks reset provider idle timeout and valid JSON succeeds", async () => {

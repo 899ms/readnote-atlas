@@ -934,7 +934,7 @@ function showReadnoteSubtitleTranslationError(error, candidates) {
 
 function subtitleTranslationErrorMessage(error) {
   const message = String(error || "");
-  if (/API key not configured/i.test(message)) return "Add a DeepSeek API key in Readnote Atlas Settings";
+  if (/API key not configured/i.test(message)) return "Add an AI provider key in Readnote Atlas Settings";
   if (/rate limit/i.test(message)) return "Translation is busy and will retry shortly";
   return "Translation is temporarily unavailable and will retry shortly";
 }
