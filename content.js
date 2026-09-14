@@ -204,29 +204,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  if (message.action === "getBackgroundCaptionState") {
-    const video = document.querySelector("video.html5-main-video");
-    const videoId = currentReadnoteVideoId();
-    const currentTime = video ? Number(video.currentTime) || 0 : 0;
-    const isPlaying = Boolean(videoId && video && !video.paused && !video.ended);
-    const segment = isPlaying ? ReadnoteTranscript.activeSegment(readnoteSubtitleSegments, currentTime) : null;
-    if (isPlaying && segment && readnoteSubtitleMode === "bilingual") {
-      const index = readnoteSubtitleSegments.findIndex((item) => item.id === segment.id);
-      if (index >= 0) {
-        requestReadnoteActiveTranslation(index);
-        scheduleReadnoteSubtitlePrefetch(index, 0);
-      }
-    }
-    sendResponse({
-      active: Boolean(isPlaying && readnoteSubtitleMode === "bilingual"),
-      videoId: videoId || "",
-      currentTime,
-      title: document.title.replace(/\s+-\s+YouTube\s*$/i, "").trim(),
-      cue: segment ? { en: segment.text || "", zh: segment.translation || segment.partialTranslation || "Generating Chinese…" } : null,
-    });
-    return false;
-  }
-
   if (message.action === "seekTo") {
     // Jump the video to a specific timestamp
     debugLog("[Readnote Atlas Content] Seeking to:", message.seconds);
