@@ -83,6 +83,15 @@ test("player subtitles prefetch a batch and expose clear, minimal controls", () 
   assert.match(content, /--rn-subtitle-x/);
   assert.match(content, /--rn-subtitle-width/);
   assert.match(content, /data-resize-handle/);
+  assert.match(content, /setupReadnoteBackgroundCaptionSync/);
+  assert.match(content, /data-background-captions/);
+  assert.match(content, /data-background-layout="A"/);
+  assert.match(content, /data-background-layout="B"/);
+  assert.match(content, /document\.visibilityState === "hidden"/);
+  assert.match(content, /!video\.paused && !video\.ended/);
+  assert.match(content, /requestWindow\(size\)/);
+  assert.match(content, /rn-background-caption-en/);
+  assert.match(content, /rn-background-caption-zh/);
   assert.match(content, /readnoteSubtitleTranslationGeneration/);
   assert.match(content, /ReadnoteTranscript\.planTranslationWindow/);
   assert.match(content, /readnote_subtitle_style_v6/);

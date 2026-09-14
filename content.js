@@ -41,6 +41,10 @@ let readnoteSubtitleRetryTimer = null;
 let readnoteSubtitlePrefetchTimer = null;
 let readnoteSubtitleActiveId = "";
 let readnoteSubtitleTranslationError = "";
+let readnoteBackgroundCaptionWindow = null;
+let readnoteBackgroundCaptionVideo = null;
+let readnoteBackgroundCaptionLayout = "A";
+let readnoteBackgroundCaptionVisibilityListenerAdded = false;
 const readnoteSubtitleTranslationRequests = new Set();
 const readnoteSubtitleUrgentRequests = new Set();
 const readnoteSubtitlePrefetchInflight = new Map();
@@ -51,6 +55,7 @@ const MAX_SUBTITLE_PREFETCH_REQUESTS = 3;
 const SUBTITLE_PREFETCH_DELAY_MS = 250;
 let readnoteSubtitleTranslationGeneration = 0;
 const SUBTITLE_STYLE_STORAGE_KEY = "readnote_subtitle_style_v6";
+const BACKGROUND_CAPTION_LAYOUT_STORAGE_KEY = "readnote_background_caption_layout_v1";
 let readnoteSubtitleStyle = {
   size: "medium",
   x: 50,
@@ -195,6 +200,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       currentTime: video ? Math.floor(video.currentTime) : 0,
       paused: video ? video.paused : true,
+    });
+    return false;
+  }
+
+  if (message.action === "getBackgroundCaptionState") {
+    const video = document.querySelector("video.html5-main-video");
+    const videoId = currentReadnoteVideoId();
+    const currentTime = video ? Number(video.currentTime) || 0 : 0;
+    const isPlaying = Boolean(videoId && video && !video.paused && !video.ended);
+    const segment = isPlaying ? ReadnoteTranscript.activeSegment(readnoteSubtitleSegments, currentTime) : null;
+    if (isPlaying && segment && readnoteSubtitleMode === "bilingual") {
+      const index = readnoteSubtitleSegments.findIndex((item) => item.id === segment.id);
+      if (index >= 0) {
+        requestReadnoteActiveTranslation(index);
+        scheduleReadnoteSubtitlePrefetch(index, 0);
+      }
+    }
+    sendResponse({
+      active: Boolean(isPlaying && readnoteSubtitleMode === "bilingual"),
+      videoId: videoId || "",
+      currentTime,
+      title: document.title.replace(/\s+-\s+YouTube\s*$/i, "").trim(),
+      cue: segment ? { en: segment.text || "", zh: segment.translation || segment.partialTranslation || "Generating Chinese…" } : null,
     });
     return false;
   }
@@ -507,6 +535,7 @@ function setupReadnoteSubtitles() {
     };
     video.addEventListener("timeupdate", readnoteSubtitleTimeListener);
     video.addEventListener("seeking", readnoteSubtitleSeekListener);
+    setupReadnoteBackgroundCaptionSync(video);
     void refreshReadnoteSubtitleState();
   };
 
@@ -538,6 +567,7 @@ function injectReadnoteSubtitleOverlay(player) {
     #readnote-subtitle-root .rn-subtitle-controls-toggle svg { width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
     #readnote-subtitle-root .rn-subtitle-mode { min-width:42px; height:28px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:rgba(255,255,255,.72); font:600 11px/1 Inter,system-ui,sans-serif; cursor:pointer; }
     #readnote-subtitle-root .rn-subtitle-mode[aria-pressed="true"] { background:#0969da; color:white; }
+    #readnote-subtitle-root .rn-subtitle-background-layout { min-width:27px; width:27px; padding:0; }
     #readnote-subtitle-root .rn-subtitle-divider { width:1px; height:18px; align-self:center; background:rgba(255,255,255,.18); }
     #readnote-subtitle-root[data-size="small"] .rn-subtitle-line { font-size:clamp(14px,1.2vw,20px); }
     #readnote-subtitle-root[data-size="large"] .rn-subtitle-line { font-size:clamp(18px,1.75vw,28px); }
@@ -573,6 +603,11 @@ function injectReadnoteSubtitleOverlay(player) {
         <span class="rn-subtitle-size-label">Size</span>
         <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="smaller" aria-label="Decrease caption size" title="Decrease size">−</button>
         <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="larger" aria-label="Increase caption size" title="Increase size">+</button>
+        <span class="rn-subtitle-divider" aria-hidden="true"></span>
+        <span class="rn-subtitle-size-label">Float</span>
+        <button class="rn-subtitle-mode rn-subtitle-background-layout" type="button" data-background-layout="A" aria-label="Bottom-right floating captions" title="Bottom-right floating captions">A</button>
+        <button class="rn-subtitle-mode rn-subtitle-background-layout" type="button" data-background-layout="B" aria-label="Centered floating captions" title="Centered floating captions">B</button>
+        <button class="rn-subtitle-mode" type="button" data-background-captions aria-label="Open background captions" title="Open captions for background listening">Open</button>
       </div>
     </div>
   `;
@@ -602,6 +637,21 @@ function injectReadnoteSubtitleOverlay(player) {
       event.stopPropagation();
       updateReadnoteSubtitleStyle(button.dataset.styleAction);
     });
+  });
+  root.querySelectorAll("[data-background-layout]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      readnoteBackgroundCaptionLayout = button.dataset.backgroundLayout === "B" ? "B" : "A";
+      updateReadnoteBackgroundCaptionControls();
+      void chrome.storage.local.set({ [BACKGROUND_CAPTION_LAYOUT_STORAGE_KEY]: readnoteBackgroundCaptionLayout });
+      syncReadnoteBackgroundCaption();
+    });
+  });
+  root.querySelector("[data-background-captions]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void openReadnoteBackgroundCaptions();
   });
   setupReadnoteSubtitleTransform(root.querySelector(".rn-subtitle-copy"), player);
   root.querySelector(".rn-subtitle-copy").addEventListener("dblclick", () => {
@@ -672,6 +722,106 @@ function updateReadnoteSubtitleStyle(action) {
   }
   applyReadnoteSubtitleStyle();
   void chrome.storage.local.set({ [SUBTITLE_STYLE_STORAGE_KEY]: readnoteSubtitleStyle });
+}
+
+function setupReadnoteBackgroundCaptionSync(video) {
+  readnoteBackgroundCaptionVideo = video;
+  video.addEventListener("play", syncReadnoteBackgroundCaption);
+  video.addEventListener("pause", syncReadnoteBackgroundCaption);
+  video.addEventListener("timeupdate", syncReadnoteBackgroundCaption);
+  if (!readnoteBackgroundCaptionVisibilityListenerAdded) {
+    document.addEventListener("visibilitychange", syncReadnoteBackgroundCaption);
+    readnoteBackgroundCaptionVisibilityListenerAdded = true;
+  }
+  void chrome.storage.local.get(BACKGROUND_CAPTION_LAYOUT_STORAGE_KEY).then((stored) => {
+    readnoteBackgroundCaptionLayout = stored[BACKGROUND_CAPTION_LAYOUT_STORAGE_KEY] === "B" ? "B" : "A";
+    updateReadnoteBackgroundCaptionControls();
+    syncReadnoteBackgroundCaption();
+  }).catch(() => {});
+}
+
+function updateReadnoteBackgroundCaptionControls() {
+  readnoteSubtitleRoot?.querySelectorAll("[data-background-layout]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.backgroundLayout === readnoteBackgroundCaptionLayout));
+  });
+}
+
+function renderReadnoteBackgroundCaptionWindow() {
+  const captionWindow = readnoteBackgroundCaptionWindow;
+  const video = readnoteBackgroundCaptionVideo;
+  const surface = captionWindow?.document.querySelector(".rn-background-caption");
+  if (!captionWindow || captionWindow.closed || !video || !surface) return;
+  const show = document.visibilityState === "hidden" && !video.paused && !video.ended && readnoteSubtitleMode === "bilingual";
+  surface.hidden = !show;
+  surface.dataset.layout = readnoteBackgroundCaptionLayout;
+  surface.querySelectorAll("[data-layout]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.layout === readnoteBackgroundCaptionLayout));
+  });
+  if (!show) return;
+  const segment = ReadnoteTranscript.activeSegment(readnoteSubtitleSegments, video.currentTime);
+  surface.querySelector(".rn-background-caption-en").textContent = segment?.text || "";
+  surface.querySelector(".rn-background-caption-zh").textContent = segment?.translation || segment?.partialTranslation || (segment ? "Generating Chinese…" : "");
+}
+
+function syncReadnoteBackgroundCaption() {
+  if (readnoteBackgroundCaptionWindow && !readnoteBackgroundCaptionWindow.closed) {
+    renderReadnoteBackgroundCaptionWindow();
+  }
+}
+
+function injectReadnoteBackgroundCaptionWindow(captionWindow) {
+  const style = captionWindow.document.createElement("style");
+  style.textContent = `
+    :root { color-scheme: dark; } * { box-sizing: border-box; }
+    body { margin: 0; min-width: 280px; min-height: 100vh; overflow: hidden; background: transparent; color: #f5f7fa; font: 14px/1.35 Inter,system-ui,sans-serif; }
+    .rn-background-caption { position: relative; display: flex; min-height: 100vh; padding: 12px 14px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(7,10,13,.3); backdrop-filter: blur(4px); }
+    .rn-background-caption[data-layout="A"] { align-items: flex-end; justify-content: flex-end; text-align: right; }
+    .rn-background-caption[data-layout="B"] { align-items: center; justify-content: center; text-align: center; }
+    .rn-background-caption-copy { width: 100%; max-width: 100%; }
+    .rn-background-caption-line { display: block; overflow-wrap: anywhere; text-shadow: 0 2px 12px rgba(0,0,0,.92), 0 1px 3px rgba(0,0,0,.96); }
+    .rn-background-caption-en { color: #fff; font-size: clamp(15px,4.5vw,22px); line-height: 1.22; }
+    .rn-background-caption-zh { margin-top: 3px; color: #fff7dc; font-size: clamp(14px,4.2vw,21px); line-height: 1.26; font-weight: 550; }
+    .rn-background-caption-tools { position: absolute; top: 5px; right: 7px; display: flex; gap: 3px; opacity: 0; transition: opacity .16s ease; }
+    .rn-background-caption:hover .rn-background-caption-tools, .rn-background-caption:focus-within .rn-background-caption-tools { opacity: 1; }
+    .rn-background-caption-tools button { width: 24px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,.22); border-radius: 5px; background: rgba(15,15,16,.58); color: rgba(255,255,255,.8); cursor: pointer; font: 600 10px/1 Inter,system-ui,sans-serif; }
+    .rn-background-caption-tools button[aria-pressed="true"] { background: #0969da; color: #fff; }
+  `;
+  captionWindow.document.head.appendChild(style);
+  captionWindow.document.body.innerHTML = `
+    <main class="rn-background-caption" data-layout="${readnoteBackgroundCaptionLayout}">
+      <div class="rn-background-caption-copy"><div class="rn-background-caption-line rn-background-caption-en"></div><div class="rn-background-caption-line rn-background-caption-zh"></div></div>
+      <div class="rn-background-caption-tools" aria-label="Caption layout"><button type="button" data-layout="A" aria-label="Bottom-right layout">A</button><button type="button" data-layout="B" aria-label="Centered layout">B</button></div>
+    </main>`;
+  captionWindow.document.querySelectorAll("[data-layout]").forEach((button) => {
+    button.addEventListener("click", () => {
+      readnoteBackgroundCaptionLayout = button.dataset.layout === "B" ? "B" : "A";
+      void chrome.storage.local.set({ [BACKGROUND_CAPTION_LAYOUT_STORAGE_KEY]: readnoteBackgroundCaptionLayout });
+      renderReadnoteBackgroundCaptionWindow();
+    });
+  });
+}
+
+async function openReadnoteBackgroundCaptions() {
+  const video = readnoteBackgroundCaptionVideo || readnoteSubtitleVideo;
+  if (!video || video.paused || video.ended) return;
+  const pictureInPicture = window.documentPictureInPicture;
+  if (!pictureInPicture || typeof pictureInPicture.requestWindow !== "function") return;
+  if (readnoteBackgroundCaptionWindow && !readnoteBackgroundCaptionWindow.closed) {
+    readnoteBackgroundCaptionWindow.focus();
+    return;
+  }
+  try {
+    const size = readnoteBackgroundCaptionLayout === "B" ? { width: 460, height: 130 } : { width: 340, height: 140 };
+    const captionWindow = await pictureInPicture.requestWindow(size);
+    readnoteBackgroundCaptionWindow = captionWindow;
+    captionWindow.addEventListener("pagehide", () => {
+      if (readnoteBackgroundCaptionWindow === captionWindow) readnoteBackgroundCaptionWindow = null;
+    }, { once: true });
+    injectReadnoteBackgroundCaptionWindow(captionWindow);
+    renderReadnoteBackgroundCaptionWindow();
+  } catch (_error) {
+    // Unsupported or cancelled floating windows stay silent.
+  }
 }
 
 function setupReadnoteSubtitleTransform(copy, player) {
@@ -947,6 +1097,7 @@ function renderReadnoteSubtitle(forcePriorityRefresh = false) {
     readnoteSubtitleActiveId = "";
     original.textContent = "";
     chinese.textContent = "";
+    syncReadnoteBackgroundCaption();
     return;
   }
 
@@ -958,6 +1109,7 @@ function renderReadnoteSubtitle(forcePriorityRefresh = false) {
     readnoteSubtitleActiveId = "";
     original.textContent = "";
     chinese.textContent = "";
+    syncReadnoteBackgroundCaption();
     return;
   }
 
@@ -980,9 +1132,20 @@ function renderReadnoteSubtitle(forcePriorityRefresh = false) {
     requestReadnoteActiveTranslation(activeIndex);
     scheduleReadnoteSubtitlePrefetch(activeIndex);
   }
+  syncReadnoteBackgroundCaption();
 }
 
 function cleanupReadnoteSubtitles() {
+  if (readnoteBackgroundCaptionVideo) {
+    readnoteBackgroundCaptionVideo.removeEventListener("play", syncReadnoteBackgroundCaption);
+    readnoteBackgroundCaptionVideo.removeEventListener("pause", syncReadnoteBackgroundCaption);
+    readnoteBackgroundCaptionVideo.removeEventListener("timeupdate", syncReadnoteBackgroundCaption);
+    readnoteBackgroundCaptionVideo = null;
+  }
+  if (readnoteBackgroundCaptionWindow && !readnoteBackgroundCaptionWindow.closed) {
+    readnoteBackgroundCaptionWindow.close();
+  }
+  readnoteBackgroundCaptionWindow = null;
   if (readnoteSubtitleVideo && readnoteSubtitleTimeListener) {
     readnoteSubtitleVideo.removeEventListener("timeupdate", readnoteSubtitleTimeListener);
   }

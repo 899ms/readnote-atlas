@@ -43,6 +43,7 @@ See [PRODUCT.md](PRODUCT.md) for the product brief and [the real-time subtitle a
 - Recover quickly after a seek, even when playback starts in the middle of a long video.
 - Move and smoothly resize the subtitle area; text reflows naturally as its width changes.
 - Open a clearly labelled, collapsible subtitle control for On / Off and text size; drag the subtitle itself to move it or its corner to reflow the width.
+- Optionally open Chrome Document Picture-in-Picture background captions from the player controls. The floating surface stays silent while YouTube is foregrounded and shows the current bilingual cue only while the video is playing in another tab. Choose the compact bottom-right `A` layout or centered `B` layout; resize the window to reflow both lines together.
 - Land on an automatically generated comprehensive Chinese overview as soon as captions load.
 - Read, search, select, and translate the complete transcript as semantic paragraphs rather than caption fragments.
 - Click a transcript row or note to seek to the exact moment.
