@@ -13,7 +13,7 @@ test("manifest exposes the unified article and video product", () => {
 
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, "Readnote Atlas");
-  assert.equal(manifest.version, "0.3.0");
+  assert.equal(manifest.version, "0.3.1");
   assert.equal(packageJson.version, manifest.version);
   assert.deepEqual(youtubeLayer.js, [
     "transcript.js",
@@ -21,9 +21,18 @@ test("manifest exposes the unified article and video product", () => {
     "content.js",
     "desktop-captions-content.js",
   ]);
+  assert.deepEqual(youtubeLayer.matches, [
+    "https://youtube.com/*",
+    "https://www.youtube.com/*",
+  ]);
   assert.deepEqual(articleLayer.js, ["article-reader.js"]);
   assert.ok(articleLayer.matches.includes("https://*/*"));
-  assert.ok(articleLayer.exclude_matches.includes("https://www.youtube.com/*"));
+  assert.deepEqual(articleLayer.exclude_matches, [
+    "http://youtube.com/*",
+    "https://youtube.com/*",
+    "http://www.youtube.com/*",
+    "https://www.youtube.com/*",
+  ]);
   assert.ok(articleLayer.css.includes("article-reader.css"));
   assert.ok(manifest.host_permissions.includes("http://127.0.0.1:8791/*"));
   assert.ok(manifest.host_permissions.includes("http://127.0.0.1:8792/*"));

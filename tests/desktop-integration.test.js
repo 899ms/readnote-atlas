@@ -10,7 +10,7 @@ function harness({ helperAbsent = false, focused = true, minimized = false } = {
   const timers = [];
   const storageWrites = [];
   const source = { id: 7, windowId: 2, active: true };
-  const context = vm.createContext({ console, Date, AbortSignal,
+  const context = vm.createContext({ console, Date, AbortSignal, URL,
     setInterval(callback) { timers.push(callback); return timers.length; }, clearInterval() {},
     async fetch(url, init) {
       requests.push({ url, init });
@@ -50,6 +50,14 @@ test('Atlas alone pairs and forwards bilingual state, returning native commands 
   assert.equal(h.requests.filter(r => r.url.endsWith('/pair')).length, 1);
   assert.equal(h.timers.length, 1, 'one wake timer keeps paused content responsive');
   assert.deepEqual(h.storageWrites, [], 'do not overwrite user settings or notes');
+});
+
+test('the desktop bridge accepts and refreshes the bare YouTube domain', async () => {
+  const h = harness();
+  const bareYouTube = { id: 'atlas', tab: { id: 7, windowId: 2 }, url: 'https://youtube.com/watch?v=test' };
+  const response = await h.send({}, bareYouTube);
+  assert.equal(response.connected, true);
+  assert.equal(h.requests.length, 2);
 });
 
 test('minimizing Chrome or switching apps makes the source invisible to the native panel', async () => {

@@ -94,7 +94,7 @@ npm run build              # build the article reader
 npm test                   # run product and unit tests
 npm run typecheck          # check TypeScript
 npm run check              # build, typecheck, test, and audit the release set
-npm run package            # create dist/readnote-atlas-v0.3.0.zip
+npm run package            # create dist/readnote-atlas-v0.3.1.zip
 npm run companion          # start article translation and knowledge sync
 npm run desktop:captions   # start the optional macOS caption helper
 ```

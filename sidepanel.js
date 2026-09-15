@@ -9,6 +9,12 @@ const DEBUG = false;
 const debugLog = (...args) => {
   if (DEBUG) console.log(...args);
 };
+const isYouTubeUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && ["youtube.com", "www.youtube.com"].includes(url.hostname);
+  } catch (_) { return false; }
+};
 
 // ============================================================
 // STATE
@@ -360,7 +366,7 @@ function panelIsShowingResults() {
  * refresh the digest when the video changed.
  */
 function handleFrontTabUrl(url) {
-  if (!(url || "").startsWith("https://www.youtube.com")) {
+  if (!isYouTubeUrl(url)) {
     // Start the position save, then close in this same event callback. Chrome
     // does not reliably honor window.close() after an asynchronous wait.
     void saveCurrentTranscriptViewState();
@@ -514,7 +520,7 @@ async function checkCurrentTab() {
       return;
     }
 
-    if (!tab.url.startsWith("https://www.youtube.com")) {
+    if (!isYouTubeUrl(tab.url)) {
       handleFrontTabUrl(tab.url);
       return;
     }

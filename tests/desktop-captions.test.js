@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const os = require('node:os');
 
 function bridgeHarness() {
   const events = new Map();
@@ -107,4 +108,22 @@ test('a retried command is acknowledged without seeking twice', async () => {
   assert.equal(h.video.currentTime, 45);
   assert.equal(h.states.at(-1).result.id, 'same');
   assert.equal(h.states.at(-1).result.ok, true);
+});
+
+test('a current desktop caption binary starts without recompiling', async (t) => {
+  const { needsDesktopCaptionBuild } = await import('../scripts/desktop-captions/build-state.mjs');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-caption-build-'));
+  const executable = path.join(directory, 'AtlasCaptions');
+  const sources = [path.join(directory, 'State.swift'), path.join(directory, 'Window.swift')];
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  for (const file of [...sources, executable]) fs.writeFileSync(file, file);
+  for (const file of sources) fs.utimesSync(file, 100, 100);
+  fs.utimesSync(executable, 200, 200);
+
+  assert.equal(needsDesktopCaptionBuild(executable, sources), false);
+  fs.utimesSync(sources[1], 300, 300);
+  assert.equal(needsDesktopCaptionBuild(executable, sources), true);
+  fs.unlinkSync(executable);
+  assert.equal(needsDesktopCaptionBuild(executable, sources), true);
 });

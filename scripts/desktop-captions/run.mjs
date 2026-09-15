@@ -8,12 +8,14 @@ import { join, resolve } from "node:path";
 import { selectSource } from "./state.mjs";
 import { CaptionCommands } from "./commands.mjs";
 import { authorized, mayPair } from "./security.mjs";
+import { needsDesktopCaptionBuild } from "./build-state.mjs";
 
 const sourceDir = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(sourceDir, "../..");
 const build = join(root, "dist/desktop-captions");
 const appDir = join(build, "Readnote Atlas Captions.app");
 const executable = join(appDir, "Contents/MacOS/AtlasCaptions");
+const swiftSources = [join(sourceDir, "CaptionWindowState.swift"), join(sourceDir, "FloatingCaptions.swift")];
 mkdirSync(join(appDir, "Contents/MacOS"), { recursive: true });
 
 // Pair only the exact installed Atlas extension. IDs are saved locally so
@@ -39,9 +41,13 @@ writeFileSync(join(appDir, "Contents/Info.plist"), `<?xml version="1.0" encoding
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
 </dict></plist>`);
-console.log("Compiling Readnote Atlas desktop captions…");
-const compilation = spawnSync("swiftc", [join(sourceDir, "CaptionWindowState.swift"), join(sourceDir, "FloatingCaptions.swift"), "-o", executable], { stdio: "inherit" });
-if (compilation.status !== 0) process.exit(compilation.status || 1);
+if (needsDesktopCaptionBuild(executable, swiftSources)) {
+  console.log("Compiling Readnote Atlas desktop captions…");
+  const compilation = spawnSync("swiftc", [...swiftSources, "-o", executable], { stdio: "inherit" });
+  if (compilation.status !== 0) process.exit(compilation.status || 1);
+} else {
+  console.log("Starting the current Readnote Atlas desktop caption build…");
+}
 
 const sources = new Map();
 const commands = new CaptionCommands();

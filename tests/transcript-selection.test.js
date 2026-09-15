@@ -128,7 +128,7 @@ test("the panel never borrows a background YouTube tab", () => {
   );
   assert.match(
     source,
-    /if \(!tab\.url\.startsWith\("https:\/\/www\.youtube\.com"\)\) \{\s*handleFrontTabUrl\(tab\.url\);\s*return;/,
+    /if \(!isYouTubeUrl\(tab\.url\)\) \{\s*handleFrontTabUrl\(tab\.url\);\s*return;/,
   );
   assert.doesNotMatch(
     source,

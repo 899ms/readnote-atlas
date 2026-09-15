@@ -23,6 +23,13 @@ const AI_PROVIDER_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const debugLog = (...args) => {
   if (DEBUG) console.log(...args);
 };
+const isYouTubeUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && ["youtube.com", "www.youtube.com"].includes(url.hostname);
+  } catch (_) { return false; }
+};
+const YOUTUBE_URL_PATTERNS = ["https://youtube.com/*", "https://www.youtube.com/*"];
 
 /**
  * Observe an optional Promise returned by a Chrome API without assuming every
@@ -347,7 +354,7 @@ async function readBoundedAiResponse(response, onActivity) {
  * Chrome's Side Panel API lets us show a persistent panel alongside the page.
  */
 chrome.action.onClicked.addListener((tab) => {
-  if (!(tab.url || "").startsWith("https://www.youtube.com")) {
+  if (!isYouTubeUrl(tab.url)) {
     void updatePanelForTab(tab.id, tab.url, tab.windowId);
     if (tab.id) {
       chrome.tabs
@@ -421,7 +428,7 @@ async function closePanelForTab(tabId, windowId) {
 }
 
 async function updatePanelForTab(tabId, url, windowId) {
-  const isYouTube = (url || "").startsWith("https://www.youtube.com");
+  const isYouTube = isYouTubeUrl(url);
   if (!isYouTube) {
     // Close the visible instance first. Then disable this tab so Chrome cannot
     // reopen the global default panel as navigation settles.
@@ -742,16 +749,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // If no YouTube tab found, try broader query
         if (!tabs[0] || !tabs[0].url?.includes("youtube.com")) {
-          tabs = await chrome.tabs.query({
-            url: "https://www.youtube.com/*",
-            active: true,
-          });
+          const groups = await Promise.all(YOUTUBE_URL_PATTERNS.map(url => chrome.tabs.query({ url, active: true })));
+          tabs = groups.flat();
           debugLog("[Readnote Atlas BG] Active YouTube tabs:", tabs.length);
         }
 
         // Still nothing? Try any YouTube tab
         if (!tabs[0]) {
-          tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" });
+          const groups = await Promise.all(YOUTUBE_URL_PATTERNS.map(url => chrome.tabs.query({ url })));
+          tabs = groups.flat();
           debugLog("[Readnote Atlas BG] Any YouTube tabs:", tabs.length);
         }
 

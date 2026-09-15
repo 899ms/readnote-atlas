@@ -94,7 +94,7 @@ npm run build              # 构建文章阅读层
 npm test                   # 运行产品与单元测试
 npm run typecheck          # 检查 TypeScript
 npm run check              # 构建、类型检查、测试并审计发布文件
-npm run package            # 生成 dist/readnote-atlas-v0.3.0.zip
+npm run package            # 生成 dist/readnote-atlas-v0.3.1.zip
 npm run companion          # 启动文章翻译和知识库同步
 npm run desktop:captions   # 启动可选的 macOS 字幕助手
 ```

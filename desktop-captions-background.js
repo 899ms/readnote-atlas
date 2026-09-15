@@ -2,6 +2,13 @@
 // Pairing is local and restricted by the helper to the installed Atlas origin.
 (() => {
 const DESKTOP_URL = "http://127.0.0.1:8792";
+const YOUTUBE_URL_PATTERNS = ["https://youtube.com/*", "https://www.youtube.com/*"];
+const isYouTubeUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && ["youtube.com", "www.youtube.com"].includes(url.hostname);
+  } catch (_) { return false; }
+};
 let desktopSession = "";
 let pairing;
 let retryAfter = 0;
@@ -44,7 +51,7 @@ function keepDesktopSourceResponsive() {
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message.type !== "atlas-desktop-state" || sender.id !== chrome.runtime.id || !sender.tab?.id ||
-      !sender.url?.startsWith("https://www.youtube.com/") || !message.state) return;
+      !isYouTubeUrl(sender.url) || !message.state) return;
   (async () => {
     const token = await session();
     if (!token) return {};
@@ -66,7 +73,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 });
 
 async function refreshYouTube() {
-  const tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" });
+  const tabGroups = await Promise.all(YOUTUBE_URL_PATTERNS.map(url => chrome.tabs.query({ url })));
+  const tabs = [...new Map(tabGroups.flat().filter(tab => Number.isInteger(tab.id)).map(tab => [tab.id, tab])).values()];
   await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, { type: "atlas-desktop-refresh" }).catch(() => {})));
 }
 chrome.windows.onFocusChanged.addListener(() => { void refreshYouTube().catch(() => {}); });

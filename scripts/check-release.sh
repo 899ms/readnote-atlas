@@ -35,6 +35,7 @@ public_allowlist=(
   "desktop-captions-content.js"
   "desktop-captions-background.js"
   "scripts/desktop-captions/run.mjs"
+  "scripts/desktop-captions/build-state.mjs"
   "scripts/desktop-captions/commands.mjs"
   "scripts/desktop-captions/state.mjs"
   "scripts/desktop-captions/security.mjs"
