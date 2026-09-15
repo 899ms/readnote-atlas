@@ -43,7 +43,7 @@ See [PRODUCT.md](PRODUCT.md) for the product brief and [the real-time subtitle a
 - Recover quickly after a seek, even when playback starts in the middle of a long video.
 - Move and smoothly resize the subtitle area; text reflows naturally as its width changes.
 - Open a clearly labelled, collapsible subtitle control for On / Off and text size; drag the subtitle itself to move it or its corner to reflow the width.
-- Optionally open Chrome Document Picture-in-Picture background captions from the player controls. The floating surface stays silent while YouTube is foregrounded and shows the current bilingual cue only while the video is playing in another tab. Choose the compact bottom-right `A` layout or centered `B` layout; resize the window to reflow both lines together.
+- Enable one Chrome Document Picture-in-Picture background-caption surface from the player controls. After the one-time permission click, it stays silent while YouTube is foregrounded and shows the current bilingual cue automatically whenever the video is still playing in another tab. The single translucent box can be moved and resized; its typography follows the available space automatically and never exposes a separate font-size control. Chrome may keep its own native PiP frame around the extension surface; the product does not add a second header, URL label, or sidebar.
 - Land on an automatically generated comprehensive Chinese overview as soon as captions load.
 - Read, search, select, and translate the complete transcript as semantic paragraphs rather than caption fragments.
 - Click a transcript row or note to seek to the exact moment.
