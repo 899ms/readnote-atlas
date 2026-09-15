@@ -32,6 +32,15 @@ public_allowlist=(
   "library.js"
   "knowledge.js"
   "content.js"
+  "desktop-captions-content.js"
+  "desktop-captions-background.js"
+  "scripts/desktop-captions/run.mjs"
+  "scripts/desktop-captions/commands.mjs"
+  "scripts/desktop-captions/state.mjs"
+  "scripts/desktop-captions/security.mjs"
+  "scripts/desktop-captions/CaptionWindowState.swift"
+  "scripts/desktop-captions/FloatingCaptions.swift"
+  "scripts/desktop-captions/README.md"
   "article-reader.js"
   "article-reader.css"
   "sidepanel.html"
@@ -69,6 +78,8 @@ public_allowlist=(
 )
 
 required_public_files=(
+  "desktop-captions-content.js"
+  "desktop-captions-background.js"
   "manifest.json"
   "background.js"
   "settings.js"

@@ -22,7 +22,7 @@ function bridgeHarness() {
     chrome: { runtime: { id: 'test', onMessage: { addListener() {} },
       async sendMessage(message) { states.push(message.state); return { command: commands.shift() }; } } },
   });
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/prototypes/desktop/bridge-content.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../desktop-captions-content.js'), 'utf8'), context);
   return { video, root, states, context,
     async tick() { await new Promise(setImmediate); await tick(); },
     async command(action, overrides = {}) {
@@ -39,7 +39,7 @@ test('desktop source remains eligible after external pause, not only a panel pau
   await h.tick();
   assert.equal(h.states.at(-1).playing, false);
   assert.equal(h.states.at(-1).keepPaused, true);
-  const { selectSource } = await import('../docs/prototypes/desktop/state.mjs');
+  const { selectSource } = await import('../scripts/desktop-captions/state.mjs');
   const sources = new Map([[1, { ...h.states.at(-1), tabId: 1, receivedAt: 20000 }]]);
   assert.equal(selectSource(sources, 1, 20000)?.tabId, 1);
 });
@@ -85,7 +85,7 @@ test('desktop commands reject stale and wrong-video requests', async () => {
 });
 
 test('rapid seek clicks use an acknowledged FIFO, including retries', async () => {
-  const { CaptionCommands } = await import('../docs/prototypes/desktop/commands.mjs');
+  const { CaptionCommands } = await import('../scripts/desktop-captions/commands.mjs');
   const q = new CaptionCommands();
   for (const id of ['first', 'second', 'third']) q.enqueue(1, { id, videoId: 'test', queuedAt: 0 });
   assert.equal(q.next(1, null, 'test', 1000).id, 'first');

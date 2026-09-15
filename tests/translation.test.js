@@ -177,7 +177,7 @@ test("a stale YouTube tab reinjects the content scripts and retries once", async
 
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
     ["send", 17, "getVideoInfo"],
-    ["inject", 17, ["transcript.js", "library.js", "content.js"]],
+    ["inject", 17, ["transcript.js", "library.js", "content.js", "desktop-captions-content.js"]],
     ["send", 17, "getVideoInfo"],
   ]);
   assert.equal(result.title, "Recovered");

@@ -19,12 +19,15 @@ test("manifest exposes the unified article and video product", () => {
     "transcript.js",
     "library.js",
     "content.js",
+    "desktop-captions-content.js",
   ]);
   assert.deepEqual(articleLayer.js, ["article-reader.js"]);
   assert.ok(articleLayer.matches.includes("https://*/*"));
   assert.ok(articleLayer.exclude_matches.includes("https://www.youtube.com/*"));
   assert.ok(articleLayer.css.includes("article-reader.css"));
   assert.ok(manifest.host_permissions.includes("http://127.0.0.1:8791/*"));
+  assert.ok(manifest.host_permissions.includes("http://127.0.0.1:8792/*"));
+  assert.match(read('background.js'), /importScripts\("desktop-captions-background\.js"\)/);
   assert.ok(manifest.host_permissions.includes("https://api.openai.com/*"));
   assert.ok(manifest.host_permissions.includes("https://generativelanguage.googleapis.com/*"));
   assert.ok(manifest.optional_host_permissions.includes("https://*/*"));

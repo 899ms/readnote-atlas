@@ -1,4 +1,4 @@
-// Deliver one action at a time; retain it until the page acknowledges it.
+// Deliver one desktop action at a time; retain it until the page acknowledges it.
 export class CaptionCommands {
   pending = new Map();
 

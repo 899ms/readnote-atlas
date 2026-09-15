@@ -1,5 +1,10 @@
 # Readnote Atlas
 
+桌面悬浮字幕的桥接能力已内置主插件，不再需要第二个 Chrome 扩展。
+配合[本地 macOS 窗口程序](scripts/desktop-captions/README.md)，切换标签页、使用其他 App
+或最小化 Chrome 时只显示一个字幕框，返回 YouTube 时隐藏；暂停后保留字幕。
+本地窗口程序仍需运行，不能仅凭加载 Chrome 扩展自动安装或启动原生程序。
+
 [English](README.md)
 
 **读懂英文世界，从文本到视频。**

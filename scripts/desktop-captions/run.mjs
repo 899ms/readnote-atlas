@@ -1,46 +1,45 @@
-// Local-only disposable macOS prototype. No production extension files changed.
+// Native desktop captions for the single Readnote Atlas extension.
 import { createServer } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, copyFileSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { selectSource } from "./state.mjs";
 import { CaptionCommands } from "./commands.mjs";
+import { authorized, mayPair } from "./security.mjs";
 
 const sourceDir = fileURLToPath(new URL(".", import.meta.url));
-const root = resolve(sourceDir, "../../..");
-const build = join(root, "dist/desktop-captions-prototype");
-const extensionDir = join(build, "chrome-bridge");
-const appDir = join(build, "Atlas Captions Prototype.app");
+const root = resolve(sourceDir, "../..");
+const build = join(root, "dist/desktop-captions");
+const appDir = join(build, "Readnote Atlas Captions.app");
 const executable = join(appDir, "Contents/MacOS/AtlasCaptions");
-mkdirSync(extensionDir, { recursive: true });
 mkdirSync(join(appDir, "Contents/MacOS"), { recursive: true });
 
-// Reuse only the prototype's local session capability so an installed bridge
-// can reconnect after restarting the helper. No API keys or captions on disk.
+// Pair only the exact installed Atlas extension. IDs are saved locally so
+// subsequent launches require no flags. No captions or provider keys on disk.
+const pairingFile = join(build, "paired-extensions.json");
+const configuredId = process.argv.find(arg => arg.startsWith("--extension-id="))?.split("=")[1];
+if (configuredId && !/^[a-p]{32}$/.test(configuredId)) throw new Error("Invalid Chrome extension ID");
+const extensionIds = configuredId ? [configuredId] :
+  (existsSync(pairingFile) ? JSON.parse(readFileSync(pairingFile, "utf8")) : []);
+if (!Array.isArray(extensionIds) || !extensionIds.length || extensionIds.some(id => !/^[a-p]{32}$/.test(id))) {
+  throw new Error("First run: npm run desktop:captions -- --extension-id=YOUR_READNOTE_ATLAS_ID");
+}
+writeFileSync(pairingFile, JSON.stringify(extensionIds), { mode: 0o600 });
 const capabilityFile = join(build, "session-capability");
 const token = existsSync(capabilityFile) ? readFileSync(capabilityFile, "utf8").trim() : randomBytes(32).toString("hex");
 writeFileSync(capabilityFile, token, { mode: 0o600 });
-writeFileSync(join(extensionDir, "session.js"), `const DESKTOP_SESSION = ${JSON.stringify(token)};\n`, { mode: 0o600 });
-for (const file of ["bridge-background.js", "bridge-content.js"]) copyFileSync(join(sourceDir, file), join(extensionDir, file));
-writeFileSync(join(extensionDir, "manifest.json"), JSON.stringify({
-  manifest_version: 3, name: "Atlas Desktop Captions — LOCAL PROTOTYPE", version: "0.0.1",
-  description: "Local-only bridge from existing Atlas YouTube captions to the macOS desktop preview.",
-  permissions: ["scripting"], host_permissions: ["https://www.youtube.com/*", "http://127.0.0.1:8792/*"],
-  background: { service_worker: "bridge-background.js" },
-  content_scripts: [{ matches: ["https://www.youtube.com/*"], js: ["bridge-content.js"] }],
-}, null, 2));
 writeFileSync(join(appDir, "Contents/Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>AtlasCaptions</string>
-<key>CFBundleIdentifier</key><string>local.readnote.atlas.captions.prototype</string>
-<key>CFBundleName</key><string>Atlas Captions Prototype</string>
+<key>CFBundleIdentifier</key><string>local.readnote.atlas.captions</string>
+<key>CFBundleName</key><string>Readnote Atlas Captions</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
 </dict></plist>`);
-console.log("Compiling the local desktop prototype…");
+console.log("Compiling Readnote Atlas desktop captions…");
 const compilation = spawnSync("swiftc", [join(sourceDir, "CaptionWindowState.swift"), join(sourceDir, "FloatingCaptions.swift"), "-o", executable], { stdio: "inherit" });
 if (compilation.status !== 0) process.exit(compilation.status || 1);
 
@@ -53,9 +52,11 @@ let app;
 const server = createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
-  if (req.headers.host !== "127.0.0.1:8792" ||
-      (req.headers.origin && !/^chrome-extension:\/\/[a-p]{32}$/.test(req.headers.origin)) ||
-      req.headers.authorization !== `Bearer ${token}`) {
+  if (req.url === "/pair" && req.method === "POST" && mayPair(req.headers, extensionIds)) {
+    req.resume();
+    res.end(JSON.stringify({ session: token })); return;
+  }
+  if (!authorized(req.headers, token, extensionIds)) {
     res.writeHead(403); res.end('{"error":"unauthorized"}'); return;
   }
   try {
@@ -97,7 +98,7 @@ const server = createServer(async (req, res) => {
 });
 server.on("error", error => { console.error(`Local bridge could not start: ${error.message}`); process.exit(1); });
 server.listen(8792, "127.0.0.1", () => {
-  console.log(`Local prototype bridge: ${extensionDir}`);
+  console.log("Desktop captions connected through Readnote Atlas; no separate bridge extension required.");
   console.log("Waiting for YouTube. No preview or duplicate caption surface opens on startup.");
   console.log("Quit from the Atlas menu-bar icon to stop both app and bridge.");
   app = spawn(executable, [], { stdio: "inherit", env: { ...process.env, READNOTE_DESKTOP_SESSION: token } });

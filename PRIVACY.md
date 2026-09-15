@@ -25,6 +25,19 @@ Browser requests are accepted only from the companion's own loopback pages or Ch
 
 ## External services
 
+### Desktop captions
+
+The optional native macOS caption helper listens only on `127.0.0.1:8792`.
+Readnote Atlas's built-in transport sends the current bilingual cue, playback
+time/state, and source-tab visibility to it. No additional translation provider
+is called and no captions are persisted by the helper. Only an explicitly paired
+Atlas extension origin can obtain the local session needed for state/commands.
+Pairing data is local under `dist/desktop-captions/`, excluded from releases.
+
+The native helper is a separate local process, not a second Chrome extension.
+Pausing retains the last caption on screen until the user dismisses it or
+returns to YouTube. Quit the helper from its menu-bar icon to stop the service.
+
 - **Supadata:** receives the canonical YouTube watch URL and the user's Supadata key to return a native timestamped transcript.
 - **Selected video AI provider:** DeepSeek, OpenAI, Google Gemini, OpenRouter, or a user-configured OpenAI-compatible endpoint receives the transcript segments or video context needed for a requested translation, overview, explanation, or note-cleanup action.
 - **Optional article translation provider:** DeepSeek, OpenAI, or MiniMax receives only the article paragraphs requested through the companion.
@@ -38,7 +51,7 @@ These providers process data under their own terms, privacy policies, retention 
 - `storage`: keep settings, annotations, notes, transcripts, watched-video progress, and caches locally.
 - `tabs` and `scripting`: identify the active YouTube video and coordinate playback actions.
 - HTTP/HTTPS content script access: add the article reading and annotation layer.
-- Host access to YouTube, Supadata, the selected built-in AI provider, and `127.0.0.1:8791`: provide the documented product flows. A custom endpoint requests access only to its configured origin when the user saves that profile.
+- Host access to YouTube, Supadata, the selected built-in AI provider, `127.0.0.1:8791` (knowledge companion), and `127.0.0.1:8792` (optional desktop captions): provide the documented product flows. A custom endpoint requests access only to its configured origin when the user saves that profile.
 
 ## Removing data
 

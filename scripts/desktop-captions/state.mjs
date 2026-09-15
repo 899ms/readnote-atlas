@@ -1,4 +1,4 @@
-// Pure selection policy. One source, no duplicate windows, no hidden stale cue.
+// Pure desktop-source selection policy. One source, no duplicate windows.
 export function selectSource(sources, currentId, now = Date.now()) {
   const live = [...sources.values()].filter(s => now - s.receivedAt < 3500 && s.videoId);
   const eligible = live.filter(s => s.surfaceReady && (s.playing || s.keepPaused));

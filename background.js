@@ -14,6 +14,7 @@
 // Import safe defaults and validation helpers. Secret keys live in
 // chrome.storage.local and are never part of the extension source.
 importScripts("settings.js", "transcript.js", "knowledge.js", "library.js");
+importScripts("desktop-captions-background.js");
 
 const DEBUG = false;
 const AI_PROVIDER_IDLE_TIMEOUT_MS = 50_000;
@@ -63,7 +64,7 @@ async function sendMessageToYouTubeContent(tabId, payload) {
     if (!isMissingContentReceiver(error)) throw error;
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["transcript.js", "library.js", "content.js"],
+      files: ["transcript.js", "library.js", "content.js", "desktop-captions-content.js"],
     });
     try {
       return await chrome.tabs.sendMessage(tabId, payload);

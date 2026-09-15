@@ -1,4 +1,4 @@
-// Visibility is independent of playback and of the bridge's heartbeat timer.
+// Desktop visibility is independent of playback and the bridge heartbeat timer.
 // Pausing/temporary disconnection freezes an existing surface; it never opens one.
 struct CaptionWindowState {
     private var visibleID: String?

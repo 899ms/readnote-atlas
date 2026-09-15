@@ -1,8 +1,8 @@
-// Disposable sidecar: reads only Atlas's already-rendered captions on YouTube.
-// No translation calls, keys, document scraping, or changes to Atlas storage.
+// Built-in desktop transport: reads Atlas's existing bilingual captions.
+// No duplicate translation calls, API keys, or separate notes store.
 (() => {
-  if (globalThis.__atlasDesktopPrototype) return;
-  globalThis.__atlasDesktopPrototype = true;
+  if (globalThis.__atlasDesktopCaptions) return;
+  globalThis.__atlasDesktopCaptions = true;
   let inFlight = false;
   let keepPaused = false;
   let lastVideoId = "";
@@ -76,8 +76,8 @@
         time: video?.currentTime || 0,
         result,
       };
-      const reply = await chrome.runtime.sendMessage({ type: "desktop-prototype-state", state });
-      if (reply?.connected) document.dispatchEvent(new Event("readnote-desktop-connected"));
+      const reply = await chrome.runtime.sendMessage({ type: "atlas-desktop-state", state });
+      if (reply?.connected && typeof claimReadnoteDesktopCaptions === "function") claimReadnoteDesktopCaptions();
       result = null;
       if (reply?.command) await runCommand(reply.command, video, videoId);
     } catch (_) { /* Helper absent or extension reload: leave Atlas untouched. */ }
@@ -88,7 +88,7 @@
   document.addEventListener("visibilitychange", tick);
   ["play", "pause", "seeked", "timeupdate", "ended"].forEach(name => document.addEventListener(name, tick, true));
   chrome.runtime.onMessage.addListener(message => {
-    if (message.type === "desktop-prototype-refresh") void tick();
+    if (message.type === "atlas-desktop-refresh") void tick();
   });
   void tick();
 })();

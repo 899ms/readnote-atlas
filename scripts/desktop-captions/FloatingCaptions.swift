@@ -1,6 +1,6 @@
 import AppKit
 
-// PROTOTYPE: one independent desktop surface, not a PiP child of Chrome.
+// One independent desktop surface for Readnote Atlas, not a PiP child of Chrome.
 // No browser automation / accessibility permission / screenshot capture.
 final class CaptionPanel: NSPanel {
     override var canBecomeKey: Bool { false }
@@ -201,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let frame = NSRect(x: 0, y: 0, width: 440, height: 146)
         panel = CaptionPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel, .resizable], backing: .buffered, defer: false)
-        panel.title = "Atlas Captions Prototype"
+        panel.title = "Readnote Atlas Captions"
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -216,14 +216,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.setFrameOrigin(NSPoint(x: screen.maxX - 464, y: screen.minY + 32))
         }
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "captions.bubble", accessibilityDescription: "Atlas desktop prototype")
+        item.button?.image = NSImage(systemSymbolName: "captions.bubble", accessibilityDescription: "Readnote Atlas captions")
         let menu = NSMenu()
         status = NSMenuItem(title: "Preview — YouTube bridge not connected", action: nil, keyEquivalent: "")
         menu.addItem(status)
         menu.addItem(.separator())
         previewItem = NSMenuItem(title: "Show / hide preview", action: #selector(togglePreview), keyEquivalent: "")
         previewItem.target = self; menu.addItem(previewItem)
-        let quit = NSMenuItem(title: "Quit desktop prototype", action: #selector(quitPrototype), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit desktop captions", action: #selector(quitPrototype), keyEquivalent: "q")
         quit.target = self; menu.addItem(quit)
         item.menu = menu
         if preview { showPreview() }
@@ -285,8 +285,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.source = state
             if self.preview { return }
             let id = "\(state["tabId"] ?? ""):\(state["videoId"] ?? "")"
-            let chromeActive = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.google.Chrome"
-            let sourceVisible = state["sourceVisible"] as? Bool == true && chromeActive
+            // The extension owns authoritative tab/window state. The panel may
+            // be frontmost itself, so NSWorkspace is not a reliable signal.
+            let sourceVisible = state["sourceVisible"] as? Bool == true
             let playing = state["playing"] as? Bool == true
             let en = state["en"] as? String ?? ""
             let zh = state["zh"] as? String ?? ""

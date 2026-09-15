@@ -12,7 +12,8 @@
     "https://api.openai.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://openrouter.ai/*",
-    "http://127.0.0.1:8791/*"
+    "http://127.0.0.1:8791/*",
+    "http://127.0.0.1:8792/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
@@ -40,7 +41,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["transcript.js", "library.js", "content.js"],
+      "js": ["transcript.js", "library.js", "content.js", "desktop-captions-content.js"],
       "run_at": "document_idle"
     },
     {
