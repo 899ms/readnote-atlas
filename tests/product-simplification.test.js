@@ -84,7 +84,7 @@ test("player subtitles prefetch a batch and expose clear, minimal controls", () 
   assert.match(content, /--rn-subtitle-width/);
   assert.match(content, /data-resize-handle/);
   assert.match(content, /setupReadnoteBackgroundCaptionSync/);
-  assert.match(content, /data-background-captions/);
+  assert.doesNotMatch(content, /data-background-captions/);
   assert.match(content, /document\.visibilityState === "hidden"/);
   assert.match(content, /video\.paused/);
   assert.match(content, /video\.ended/);

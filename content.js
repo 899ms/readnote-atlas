@@ -49,6 +49,7 @@ let readnoteBackgroundCaptionMediaSessionRegistered = false;
 let readnoteBackgroundCaptionAuto = true;
 let readnoteBackgroundCaptionAutoReady = false;
 let readnoteBackgroundCaptionOpening = false;
+let readnoteDesktopCaptionOwner = false;
 let readnoteBackgroundCaptionGeneration = 0;
 const BACKGROUND_CAPTION_AUTO_KEY = "readnote_background_caption_auto_v1";
 const readnoteSubtitleTranslationRequests = new Set();
@@ -584,9 +585,6 @@ function injectReadnoteSubtitleOverlay(player) {
         <span class="rn-subtitle-size-label">Size</span>
         <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="smaller" aria-label="Decrease caption size" title="Decrease size">−</button>
         <button class="rn-subtitle-mode rn-subtitle-size" type="button" data-style-action="larger" aria-label="Increase caption size" title="Increase size">+</button>
-        <span class="rn-subtitle-divider" aria-hidden="true"></span>
-        <span class="rn-subtitle-size-label">Background</span>
-        <button class="rn-subtitle-mode" type="button" data-background-captions aria-label="Automatic background captions" title="Automatic background captions">Auto</button>
       </div>
     </div>
   `;
@@ -616,19 +614,6 @@ function injectReadnoteSubtitleOverlay(player) {
       event.stopPropagation();
       updateReadnoteSubtitleStyle(button.dataset.styleAction);
     });
-  });
-  root.querySelector("[data-background-captions]")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!readnoteBackgroundCaptionMediaSessionRegistered && readnoteBackgroundCaptionAuto) {
-      void openReadnoteBackgroundCaptions();
-      return;
-    }
-    readnoteBackgroundCaptionAuto = !readnoteBackgroundCaptionAuto;
-    readnoteBackgroundCaptionAutoReady = true;
-    void chrome.storage.local.set({ [BACKGROUND_CAPTION_AUTO_KEY]: readnoteBackgroundCaptionAuto }).catch(() => {});
-    registerReadnoteBackgroundCaptionMediaSession();
-    syncReadnoteBackgroundCaption();
   });
   setupReadnoteSubtitleTransform(root.querySelector(".rn-subtitle-copy"), player);
   root.querySelector(".rn-subtitle-copy").addEventListener("dblclick", () => {
@@ -710,6 +695,7 @@ async function setupReadnoteBackgroundCaptionSync(video) {
   video.addEventListener("ended", syncReadnoteBackgroundCaption);
   video.addEventListener("timeupdate", syncReadnoteBackgroundCaption);
   if (!readnoteBackgroundCaptionVisibilityListenerAdded) {
+    document.addEventListener("readnote-desktop-connected", claimReadnoteDesktopCaptions);
     document.addEventListener("visibilitychange", syncReadnoteBackgroundCaption);
     window.addEventListener("blur", syncReadnoteBackgroundCaption);
     window.addEventListener("focus", syncReadnoteBackgroundCaption);
@@ -726,7 +712,16 @@ async function setupReadnoteBackgroundCaptionSync(video) {
     readnoteBackgroundCaptionAutoReady = true;
   }
   registerReadnoteBackgroundCaptionMediaSession();
-  updateReadnoteBackgroundCaptionControl();
+}
+
+function claimReadnoteDesktopCaptions() {
+  // A single surface owns captions for this page session. Keep the handoff
+  // through temporary bridge outages; a network timeout must not open a twin.
+  readnoteDesktopCaptionOwner = true;
+  syncReadnoteBackgroundCaption();
+  if (!readnoteBackgroundCaptionOpening) {
+    document.documentElement.dataset.readnoteCaptionOwner = "desktop";
+  }
 }
 
 function registerReadnoteBackgroundCaptionMediaSession() {
@@ -746,7 +741,6 @@ function registerReadnoteBackgroundCaptionMediaSession() {
     // Older Chromium versions keep the manual fallback available.
     readnoteBackgroundCaptionMediaSessionRegistered = false;
   }
-  updateReadnoteBackgroundCaptionControl();
 }
 
 function renderReadnoteBackgroundCaptionWindow() {
@@ -769,28 +763,16 @@ function renderReadnoteBackgroundCaptionWindow() {
 }
 
 function syncReadnoteBackgroundCaption() {
-  updateReadnoteBackgroundCaptionControl();
   if (readnoteBackgroundCaptionWindow && !readnoteBackgroundCaptionWindow.closed) {
     const video = readnoteBackgroundCaptionVideo;
-    if ((document.visibilityState === "visible" && document.hasFocus()) || !video || video.ended ||
-      (video.paused && !readnoteBackgroundCaptionPausedByControl) || readnoteSubtitleMode !== "bilingual" ||
+    if (readnoteDesktopCaptionOwner || (document.visibilityState === "visible" && document.hasFocus()) || !video || video.ended ||
+      readnoteSubtitleMode !== "bilingual" ||
       !readnoteBackgroundCaptionAuto) {
       readnoteBackgroundCaptionWindow.close();
       return;
     }
     renderReadnoteBackgroundCaptionWindow();
   }
-}
-
-function updateReadnoteBackgroundCaptionControl() {
-  const button = readnoteSubtitleRoot?.querySelector("[data-background-captions]");
-  if (!button) return;
-  const automatic = readnoteBackgroundCaptionMediaSessionRegistered && readnoteBackgroundCaptionAuto;
-  button.textContent = automatic ? "Auto" : readnoteBackgroundCaptionAuto ? "Open" : "Off";
-  button.title = automatic ? "Automatic background captions (Chrome permission required)" :
-    readnoteBackgroundCaptionAuto ? "Open background captions manually" : "Turn automatic background captions on";
-  button.setAttribute("aria-label", button.title);
-  button.setAttribute("aria-pressed", String(automatic));
 }
 
 function injectReadnoteBackgroundCaptionWindow(captionWindow) {
@@ -882,6 +864,7 @@ function fitReadnoteBackgroundCaptionText(surface) {
 }
 
 async function openReadnoteBackgroundCaptions(automatic = false) {
+  if (readnoteDesktopCaptionOwner) return;
   const video = readnoteBackgroundCaptionVideo || readnoteSubtitleVideo;
   if (!video || video.ended) return;
   if (automatic && (!readnoteBackgroundCaptionAuto || video.paused || video.muted || video.volume === 0 ||
@@ -898,7 +881,7 @@ async function openReadnoteBackgroundCaptions(automatic = false) {
   try {
     const size = { width: 380, height: 120 };
     const captionWindow = await pictureInPicture.requestWindow(size);
-    if (generation !== readnoteBackgroundCaptionGeneration || video !== readnoteBackgroundCaptionVideo ||
+    if (readnoteDesktopCaptionOwner || generation !== readnoteBackgroundCaptionGeneration || video !== readnoteBackgroundCaptionVideo ||
       (automatic && (!readnoteBackgroundCaptionAuto || video.paused || video.ended || readnoteSubtitleMode !== "bilingual" ||
       (document.visibilityState === "visible" && document.hasFocus())))) {
       captionWindow.close();
@@ -908,10 +891,8 @@ async function openReadnoteBackgroundCaptions(automatic = false) {
     readnoteBackgroundCaptionPausedByControl = false;
     captionWindow.addEventListener("pagehide", () => {
       if (readnoteBackgroundCaptionWindow === captionWindow) readnoteBackgroundCaptionWindow = null;
-      updateReadnoteBackgroundCaptionControl();
     }, { once: true });
     injectReadnoteBackgroundCaptionWindow(captionWindow);
-    updateReadnoteBackgroundCaptionControl();
     renderReadnoteBackgroundCaptionWindow();
   } catch (_error) {
     // Unsupported or cancelled floating windows stay silent.
@@ -1243,6 +1224,7 @@ function cleanupReadnoteSubtitles() {
     readnoteBackgroundCaptionVideo = null;
   }
   if (readnoteBackgroundCaptionVisibilityListenerAdded) {
+    document.removeEventListener("readnote-desktop-connected", claimReadnoteDesktopCaptions);
     document.removeEventListener("visibilitychange", syncReadnoteBackgroundCaption);
     window.removeEventListener("blur", syncReadnoteBackgroundCaption);
     window.removeEventListener("focus", syncReadnoteBackgroundCaption);

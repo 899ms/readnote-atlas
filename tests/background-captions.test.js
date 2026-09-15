@@ -17,6 +17,7 @@ function harness({ preference = true, supported = true } = {}) {
     removeEventListener(name) { events.delete(`video:${name}`); },
   };
   const document = {
+    documentElement: { dataset: {} },
     visibilityState: 'visible', focused: true,
     hasFocus() { return this.focused; },
     addEventListener(name, handler) { events.set(`document:${name}`, handler); },
@@ -108,12 +109,38 @@ test('paused, ended, muted, or captions-Off video never auto-opens', async () =>
   }
 });
 
+test('an open caption window survives pause and subsequent updates until returning to YouTube', async () => {
+  const h = harness();
+  await h.setup();
+  await h.leave();
+  h.video.paused = true;
+  h.events.get('video:pause')?.();
+  assert.equal(h.windows[0].closed, false);
+  for (let i = 0; i < 10; i++) h.events.get('video:timeupdate')?.();
+  assert.equal(h.windows[0].closed, false);
+  h.returnToVideo();
+  assert.equal(h.windows[0].closed, true);
+});
+
 test('saved Off preference disables automatic PiP', async () => {
   const h = harness({ preference: false });
   await h.setup();
   await h.leave();
   assert.equal(h.requests(), 0);
   assert.equal(h.actions.size, 0);
+});
+
+test('desktop handoff closes browser captions and suppresses every subsequent automatic or manual open', async () => {
+  const h = harness();
+  await h.setup();
+  await h.leave();
+  h.events.get('document:readnote-desktop-connected')();
+  assert.equal(h.windows[0].closed, true);
+  assert.equal(h.document.documentElement.dataset.readnoteCaptionOwner, 'desktop');
+  h.returnToVideo();
+  await h.leave();
+  await vm.runInContext('openReadnoteBackgroundCaptions()', h.context);
+  assert.equal(h.requests(), 1, 'only the original browser window should have been requested');
 });
 
 test('unsupported media action preserves the manual fallback without throwing', async () => {
@@ -123,4 +150,8 @@ test('unsupported media action preserves the manual fallback without throwing', 
   assert.equal(h.requests(), 0);
   await vm.runInContext('openReadnoteBackgroundCaptions()', h.context);
   assert.equal(h.requests(), 1);
+});
+
+test('caption toolbar has no Background / Auto entry', () => {
+  assert.doesNotMatch(source, /data-background-captions|>Background<|>Auto<|updateReadnoteBackgroundCaptionControl/);
 });
