@@ -1,6 +1,6 @@
 # Privacy
 
-Effective: September 8, 2026
+Updated: September 15, 2026
 
 Readnote Atlas is a local-first, bring-your-own-key Chrome extension. It has no Readnote Atlas account, developer-operated cloud backend, analytics, advertising, or telemetry.
 
@@ -23,9 +23,7 @@ The optional companion listens only on `127.0.0.1:8791`. It can:
 The companion does not scan an Obsidian vault or discover Notion pages. Notion credentials, notebook paths, and companion translation credentials remain in `.env.local`, which is excluded from Git.
 Browser requests are accepted only from the companion's own loopback pages or Chrome extension origins. Its extension-facing health response reports configuration booleans only, never notebook paths, page IDs, profile names, provider names, or model names.
 
-## External services
-
-### Desktop captions
+## Desktop captions
 
 The optional native macOS caption helper listens only on `127.0.0.1:8792`.
 Readnote Atlas's built-in transport sends the current bilingual cue, playback
@@ -34,9 +32,13 @@ is called and no captions are persisted by the helper. Only an explicitly paired
 Atlas extension origin can obtain the local session needed for state/commands.
 Pairing data is local under `dist/desktop-captions/`, excluded from releases.
 
-The native helper is a separate local process, not a second Chrome extension.
+The native helper is a separate local process used for cross-app rendering.
 Pausing retains the last caption on screen until the user dismisses it or
 returns to YouTube. Quit the helper from its menu-bar icon to stop the service.
+
+## External services
+
+On YouTube, native caption retrieval, pretranslation, and overview generation may begin automatically when a video loads. Opening the side panel is not required for those provider requests. Local-first storage does not mean offline AI processing.
 
 - **Supadata:** receives the canonical YouTube watch URL and the user's Supadata key to return a native timestamped transcript.
 - **Selected video AI provider:** DeepSeek, OpenAI, Google Gemini, OpenRouter, or a user-configured OpenAI-compatible endpoint receives the transcript segments or video context needed for a requested translation, overview, explanation, or note-cleanup action.
@@ -58,3 +60,5 @@ These providers process data under their own terms, privacy policies, retention 
 Use Settings to clear cached video data, delete notes, or reset extension storage. Removing the extension also removes its Chrome storage. Delete `.env.local` separately to remove companion settings. Deleting local data does not remove data already processed or retained by an external provider; use that provider's controls for service-side deletion.
 
 Chrome local storage and `.env.local` are not encrypted password vaults. Use dedicated API keys, set spending limits, and revoke keys if the device or browser profile is compromised.
+
+Removing the Chrome extension does not uninstall the native helper or remove its local pairing data. Quit the helper, then remove `dist/desktop-captions/` inside your project if you no longer want its generated app and pairing configuration.

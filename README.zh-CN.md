@@ -1,127 +1,162 @@
 # Readnote Atlas
 
-桌面悬浮字幕的桥接能力已内置主插件，不再需要第二个 Chrome 扩展。
-配合[本地 macOS 窗口程序](scripts/desktop-captions/README.md)，切换标签页、使用其他 App
-或最小化 Chrome 时只显示一个字幕框，返回 YouTube 时隐藏；暂停后保留字幕。
-本地窗口程序仍需运行，不能仅凭加载 Chrome 扩展自动安装或启动原生程序。
-
 [English](README.md)
 
-**读懂英文世界，从文本到视频。**
+**帮助中文母语者读懂英文世界，从文本到视频。**
 
-Readnote Atlas 是一个面向中文母语读者的 local-first Chrome 扩展。它让英文文章和视频始终保留在原始语境中，在真正需要的地方提供中英双语辅助，并把你主动选择的内容沉淀到自己的 Obsidian 或 Notion 知识库。
+Readnote Atlas 是一个 local-first Chrome 扩展：在原始文章和 YouTube 视频中保留英文语境，用中英双语降低理解门槛，再把你真正选择的内容沉淀进自己的知识库。
 
-## 为什么做这个项目
+> 翻译只是阅读辅助，不是终点。
 
-英文互联网中最值得学习的内容，并不只存在于文章里。它也可能是一份技术文档、一场访谈、一堂课程，或一段长达数小时的深度对话。
+[安装](#一次安装) · [跟着试一次](#第一次使用跟着做) · [悬浮字幕](#可选跨-app-悬浮字幕macos) · [常见问题](#开始前你可能想问) · [设计初衷](#为什么做-atlas)
 
-这里真正的问题不只是“如何翻译”。整页中文会让原文消失，过度压缩的摘要会抹平作者的推理过程，而独立的笔记工具又常常切断观点与原始语境之间的联系。
+## 新用户从这里开始
 
-翻译只是阅读辅助，不是终点。Readnote Atlas 希望建立一条更完整的路径：
+| 你想做什么 | 怎么做 |
+| --- | --- |
+| 阅读文章 | 在原页面高亮或批注；运行本地 companion 后，还可以渐进翻译英文段落。 |
+| 学习视频 | 打开有原生字幕的 YouTube 视频，播放器画面内居中显示英文与简体中文字幕，侧边栏提供完整 transcript。 |
+| 留下想法 | 点小书签保存时间戳，选中 transcript 段落，或直接写下个人感想。 |
+| 边听边工作 | 在 macOS 启动可选的原生字幕助手；YouTube 在后台播放时，屏幕上只保留一个紧凑的悬浮字幕框。 |
+
+## 产品工作流
 
 `原始内容 → 双语理解 → 精确选择 → 个人笔记 → Obsidian / Notion`
 
-原文始终是主角，中英文始终彼此对照。文章中的一个段落和视频中的一个时间戳，本质上是同一种知识锚点。翻译帮助我们跨过语言边界，而笔记让理解过的内容真正成为自己的知识。
+原文始终是主角。文章段落和视频时间戳都是可回溯的知识锚点，因此阅读和观看最终进入同一套个人知识库。
 
-由此形成五条产品原则：
-
-1. **留在原始语境中阅读。** 不为了翻译而离开文章或视频。
-2. **默认中英双语。** 中文用于辅助理解，但不取代英文原文。
-3. **文本与视频使用同一套体验。** 阅读、选择、批注和知识沉淀不因媒介变化而割裂。
-4. **速度本身就是理解体验的一部分。** 实时字幕必须跟上播放进度，也必须在用户从长视频中段开始观看时迅速接上。
-5. **知识和数据属于用户。** 内容优先保存在本地，只同步到用户主动配置的服务和知识库。
-
-更完整的产品定义见 [PRODUCT.md](PRODUCT.md)，播放器字幕的技术取舍见[实时双语字幕架构研究](docs/realtime-caption-architecture.md)。
-
-## 已实现能力
-
-### 英文文章
+### 文章
 
 - 在原网页中渐进翻译可阅读的英文段落；
-- 选中文字后直接高亮、下划线、写批注或保存摘录；
+- 高亮、下划线、批注并保存选中文字；
 - 再次打开同一 URL 时恢复标注；
-- 将摘录追加到一个 Obsidian Markdown 笔记，并可选同步到 Notion。
+- 将带来源的摘录写入 Obsidian Markdown，并可选同步到 Notion。
 
 ### YouTube 视频
 
-- 在播放器画面内居中显示英文与简体中文字幕；
-- 只用一个清晰的 `On` / `Off` 开关控制中英双语，不提供纯英文或纯中文模式；
-- 当前句采用流式翻译，并持续预翻译播放头之后的字幕；
-- 即使从长视频中段开始观看或频繁拖动进度条，也会优先追上当前字幕；
-- 字幕区域可以移动和平滑缩放，改变宽度时文字会自然重排；
-- 通过文字清晰标注、可收起的字幕控件切换 On / Off 与字号；直接拖动字幕移动位置，拖动右下角改变宽度并自然重排；
-- 字幕加载后立即在默认页自动生成覆盖完整讨论内容的中文综述；
-- 在 Chrome 侧边栏按完整语义段落阅读、搜索、选择并翻译 transcript，而不是重复播放器中的逐句字幕；
-- 点击 transcript 或笔记，精确跳转到对应时间；
-- 用播放器右上角的小书签保存精彩时刻，选择 transcript 段落保存原文，或在当前时间直接写下个人感想；
-- 笔记先保存在本地，再同步到 Obsidian 和/或 Notion。
-- 一条视频在前台真实播放累计满 10 分钟后，自动进入本地 Watched Library，便于回看与继续观看。
+- 播放器画面内居中显示英文与简体中文字幕；
+- 只有一个 `On` / `Off` 双语开关，不提供纯英文或纯中文模式；
+- 当前句流式翻译，并预翻译播放头之后的字幕；跳播后优先处理新的播放位置，首次或未缓存的翻译仍受服务速度影响；
+- 字幕框可拖动、缩放，宽度变化时文字自然重排并完整适配；
+- 字幕加载后立即生成覆盖完整讨论内容的中文 Overview；
+- 侧边栏顺序是 **Overview → Notes → Transcript → Library**；
+- transcript 按完整语义段落呈现，可搜索、选择并跳转时间戳；
+- 用小书签保存精彩时刻、保存段落，或在当前时间写下个人感想；
+- 前台真实播放累计满 10 分钟后，视频自动进入 Watched Library。
 
-## 本地安装与开发
+## 一次安装
 
-需要 Chrome 116+、Node.js 22.19+、用于获取 YouTube transcript 的 Supadata API Key，以及任一受支持 AI provider 的 API Key。
+目前采用源码安装，不是 Chrome Web Store 一键安装包。先准备 Chrome 116+ 和 Node.js 22.19+。
+
+| 想使用的能力 | 需要配置什么 |
+| --- | --- |
+| 文章高亮与本地批注 | 只需扩展 |
+| YouTube 双语字幕、综述、transcript | 在 Settings 中配置 Supadata Key 和视频 AI provider Key |
+| 文章翻译 | 本地知识库 companion + 文章翻译 provider Key |
+| Obsidian / Notion 同步 | 本地知识库 companion + 自己选择的目标笔记 |
+| 跨 App 置顶字幕 | Readnote Atlas + 可选 macOS helper |
 
 ```bash
 git clone https://github.com/pheobepotato/readnote-atlas.git
 cd readnote-atlas
 npm install
 npm run build
-npm test
-npm run check
 ```
 
-然后：
+1. 打开 `chrome://extensions`，开启“开发者模式”。
+2. 点击“加载已解压的扩展程序”，选择包含 `manifest.json` 的仓库文件夹。
+3. 打开扩展的 **Options / Readnote Atlas Settings**。使用 YouTube 时，填写 Supadata，并配置 DeepSeek、OpenAI、Google Gemini、OpenRouter 或自定义 OpenAI-compatible endpoint。
+4. 保存后，刷新已经打开的文章或 YouTube 标签页。
 
-1. 打开 `chrome://extensions`；
-2. 开启“开发者模式”；
-3. 点击“加载已解压的扩展程序”，选择仓库文件夹；
-4. 进入 **Readnote Atlas Settings**，填写 Supadata Key，并选择 DeepSeek、OpenAI、Google Gemini、OpenRouter 或自定义 OpenAI-compatible endpoint。
+使用你自己的 API Key，服务商可能按使用量收费，建议在各服务商账户中设置额度。
 
-请勿把 API Key 放进源代码、GitHub、截图或聊天记录。
+## 第一次使用，跟着做
 
-## 个人知识库
+- [ ] 打开一个有原生字幕的英文 YouTube 访谈并播放，保持双语字幕 **On**。transcript 和翻译准备好后，中英文会一起显示。
+- [ ] 点击播放器下方的 **Readnote Atlas**，或 Chrome 工具栏的扩展图标。默认是 **Overview**；中文综述在字幕加载时已开始生成，不必等你展开侧边栏。
+- [ ] 听到值得记住的一段？点击播放器小书签。在 **Notes** 找到它，也可以直接写感想并点击 **Save note**。
+- [ ] 打开 **Transcript**，搜索或选择有意义的段落并保存。它会进入同一份 Notes，时间戳让你随时回到上下文。
+- [ ] 以后从 **Library** 回看。视频需要累计前台播放满 10 分钟才收录；跳播和后台收听不计入这个门槛。
 
-启动可选的本地 companion：
+文章则可以先选中文字，高亮、下划线、批注或保存。需要段落翻译与知识库同步时，再启动下面的 companion。
+
+### 可选：文章翻译与知识库同步
 
 ```bash
 npm run companion
 ```
 
-打开 `http://127.0.0.1:8791/setup`，配置：
+打开 `http://127.0.0.1:8791/setup`，按需配置文章翻译服务（DeepSeek、OpenAI 或 MiniMax）与 Key、一个 Obsidian Markdown 笔记路径，以及可选的 Notion integration token 和目标 page ID。
 
-- 一个 Obsidian Markdown 笔记的绝对路径；
-- 可选的 Notion integration token 和目标 page id；
-- 用于文章翻译的服务与 API Key。
+翻译文章或同步时保持 companion 运行。敏感配置保存在被 Git 忽略的 `.env.local`。视频笔记先保存在本地，没有 Obsidian 或 Notion 也可以开始记笔记。
 
-Companion 将敏感配置写入已被 Git 忽略的 `.env.local`。文章摘录与视频时间戳笔记使用同一套来源结构，因此知识库会成为一条连续的学习记录，而不是零散的导出文件夹。
+### 可选：跨 App 悬浮字幕（macOS）
 
-## 隐私与数据流向
+在 macOS 上运行可选的字幕助手，即可在使用其他 App 时继续看字幕：
 
-- 文章标注、翻译缓存、视频 transcript、笔记、综述与观看进度保存在 Chrome 本地；
-- 文章翻译和知识库同步请求通过 `127.0.0.1:8791` 的本地 companion 完成；
-- Companion 只写入你配置的 Markdown 文件和 Notion 页面；
-- 获取视频 transcript 时，Supadata 只收到标准化后的 YouTube URL；
-- 当前启用的 AI provider 只收到翻译或 AI 功能所需的内容；各 provider profile 和 Key 均保存在 Chrome 本地；
-- 没有 Readnote Atlas 账号、分析 SDK、广告或开发者运营的云端服务。
+需要 macOS、Node.js 和 Apple Command Line Tools（`swiftc`）。从 `chrome://extensions` 复制**你自己的** Readnote Atlas 扩展 ID，替换下面的占位符：
 
-完整说明见 [PRIVACY.md](PRIVACY.md)。
+```bash
+npm run desktop:captions -- --extension-id=YOUR_READNOTE_ATLAS_ID
+```
 
-## 当前边界
+首次配对后刷新 YouTube 标签页，保持 helper 运行。以后只需 `npm run desktop:captions`，不用重复输入 ID。目前不会安装开机自启服务。
 
-- 暂不支持 YouTube Shorts、直播、私密视频以及没有原生字幕的视频；
-- 播放器字幕会自动获取并缓存原生字幕，无需先打开侧边栏；
-- 视频 AI 能力支持 DeepSeek、OpenAI、Google Gemini、OpenRouter 和自定义 OpenAI-compatible endpoint；文章翻译可通过 companion 使用 DeepSeek、OpenAI 或 MiniMax；
-- 第一版仅支持 Chrome。
+- [ ] 播放视频，切换标签或最小化 Chrome：一个简洁的无边框字幕窗口浮在其他 App 上方。
+- [ ] 拖动或缩放：中英文在深灰毛玻璃框中左对齐、自动适配，两种语言间保留小段间距。
+- [ ] 鼠标移入：显示 **后退 15s · 播放/暂停 · 前进 15s**，以及书签和关闭按钮。
+- [ ] 暂停：保留最后一句；返回 YouTube：隐藏；点击 **×**：保持关闭，直到你回到 YouTube。
+
+配对与排查见[助手说明](scripts/desktop-captions/README.md)。退出 helper 后，需要刷新 YouTube 才恢复浏览器 PiP fallback；后者受 Chrome 权限限制，不能保证相同的跨 App 效果。
+
+请勿把 API Key、`.env.local`、配对文件或机器专属二进制文件提交到 GitHub。
+
+## 常用命令
+
+```bash
+npm run build             # 构建文章阅读层
+npm test                  # 运行产品与单元测试
+npm run typecheck         # 检查 TypeScript
+npm run check             # 构建、类型检查、测试并审计发布文件
+npm run package           # 生成 dist/readnote-atlas-v0.3.0.zip
+npm run companion         # 启动本地知识库 companion
+npm run desktop:captions   # 启动可选的 macOS 字幕 helper
+```
+
+## 开始前，你可能想问
+
+<details>
+<summary>常见问题</summary>
+
+**为什么没有翻译？** 视频需要原生 YouTube 字幕、Supadata Key 和已配置的视频 AI provider。本版本暂不支持 Shorts、直播、私密视频和没有原生字幕的视频。
+
+**数据在哪里？** 笔记、transcript、缓存、设置和观看进度保存在 Chrome 本地。YouTube 加载后可能自动获取字幕、预翻译和生成综述：Supadata 收到视频 URL，选用的 AI provider 收到相应文本和上下文。Local-first 不等于 AI 离线运行。
+
+**为什么翻译有时还要等？** Atlas 会预翻译、缓存，并在跳播后优先追赶当前字幕。但新视频、未缓存的位置、服务限流或网络延迟仍可能产生等待。请检查已保存的 Key 和 provider 设置；不能承诺零延迟。
+
+**helper 会自动启动吗？** 不会。目前源码安装不会通过 Chrome 安装或启动它。需要跨 App 字幕时运行 helper；没有出现字幕框时，检查配对、刷新 YouTube，并确保 8792 端口只运行一个 helper。
+
+**以后怎么更新？** 在没有未提交改动的仓库中依次运行 `git pull --ff-only`、`npm install`、`npm run build`；再到 `chrome://extensions` 重新加载 Atlas，刷新网页。原生 helper 代码变化时也要重启。更新前请保留自己的本地修改。
+
+</details>
+
+## 为什么做 Atlas
+
+我做 Readnote 时最在意的，不是把一篇文章翻译完，而是理解某个观点之后，能把自己的想法和来源一起留下。访谈与课程也值得拥有同样的路径，而不是再变成一堆孤立的摘要。
+
+Atlas 把文本和视频放进同一个学习过程：英文保留细节，中文降低理解门槛，笔记让来源可以回溯。最终沉淀的应当是持续生长的个人知识，而不是翻译存档。
+
+设计仍然遵循 Readnote 的简约语言：原始内容优先、双语对照、精确选择、个人知识归用户所有。完整交互与验收标准见 [PRODUCT.md](PRODUCT.md)，数据流向见 [PRIVACY.md](PRIVACY.md)。
 
 ## 项目来源与致谢
 
-Readnote Atlas 是在两个项目基础上完成的独立设计：
+Readnote Atlas 是一个独立项目，建立在两个基础之上：
 
-- [Readnote](https://github.com/pheobepotato/readnote) 由本项目作者创建，它确立了“原始内容优先”的阅读理念、本地批注方式，以及向 Obsidian / Notion 沉淀个人知识的工作流。
-- [YouTube Digest v1.2.0](https://github.com/zarazhangrui/youtube-digest/releases/tag/v1.2.0) 由 **Zara Zhang** 创建。它为 transcript 获取、双语视频阅读、时间戳导航、内容解释和视频笔记提供了开源基础与重要灵感。本项目的视频工作流部分代码基于其 MIT License 衍生，并在产品结构、播放器字幕、实时翻译调度和知识库整合等方面进行了重新设计。
+- [Readnote](https://github.com/pheobepotato/readnote)：由本项目作者创建，确立了原始内容优先、本地批注和 Obsidian/Notion 知识工作流；
+- [YouTube Digest v1.2.0](https://github.com/zarazhangrui/youtube-digest/releases/tag/v1.2.0)：由 **Zara Zhang** 创建，为 transcript 获取、双语视频学习、时间戳导航、解释和视频笔记提供开源基础与灵感。Atlas 视频工作流的部分代码在其 MIT License 下衍生，并进行了实质性的重新设计。
 
-Readnote Atlas 是一个独立项目，不是 YouTube Digest 或 Zara Zhang 的官方版本，也不代表原作者对本项目的认可或背书。我们真诚感谢 Zara Zhang 的开源工作，它让这次探索成为可能。原作者版权声明已完整保留在 [LICENSE](LICENSE) 中，两个项目之间的关系也记录在 [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)。
+Readnote Atlas 不是 YouTube Digest 的官方版本，也不代表 Zara Zhang 的认可或背书。原始声明保留在 [LICENSE](LICENSE)，项目关系记录在 [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)。
 
-## 开源许可
+## 隐私与许可
 
-[MIT License](LICENSE)，欢迎参与贡献。
+完整数据流见 [PRIVACY.md](PRIVACY.md)。本项目采用 [MIT License](LICENSE) 开源。
