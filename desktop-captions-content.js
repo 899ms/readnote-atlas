@@ -29,6 +29,16 @@
       const delta = command.action === "rewind" ? -15 : 15;
       video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + delta));
       result.ok = true;
+    } else if (command.action === "seek") {
+      const target = Number(command.value);
+      if (!Number.isFinite(video.duration) || !Number.isFinite(target)) return;
+      video.currentTime = Math.max(0, Math.min(video.duration, target));
+      result.ok = true;
+    } else if (command.action === "rate") {
+      const rate = Number(command.value);
+      if (![1, 1.25, 1.5, 1.75, 2].includes(rate)) return;
+      video.playbackRate = rate;
+      result.ok = true;
     } else if (command.action === "bookmark") {
       // Use the existing app's save path, not a second notebook or fake saved state.
       if (Math.abs(video.currentTime - command.time) > 4) return;
@@ -74,6 +84,8 @@
         keepPaused: Boolean(enabled && video.paused && keepPaused),
         pageVisible: document.visibilityState === "visible",
         time: video?.currentTime || 0,
+        duration: Number.isFinite(video?.duration) ? video.duration : 0,
+        rate: Number.isFinite(video?.playbackRate) ? video.playbackRate : 1,
         result,
       };
       const reply = await chrome.runtime.sendMessage({ type: "atlas-desktop-state", state });
@@ -86,7 +98,7 @@
 
   setInterval(tick, 300);
   document.addEventListener("visibilitychange", tick);
-  ["play", "pause", "seeked", "timeupdate", "ended"].forEach(name => document.addEventListener(name, tick, true));
+  ["play", "pause", "seeked", "timeupdate", "ratechange", "durationchange", "ended"].forEach(name => document.addEventListener(name, tick, true));
   chrome.runtime.onMessage.addListener(message => {
     if (message.type === "atlas-desktop-refresh") void tick();
   });

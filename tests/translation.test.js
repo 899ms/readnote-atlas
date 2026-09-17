@@ -391,17 +391,37 @@ test("semantic segmentation rebuilds sentences across caption boundaries", () =>
   assert.equal(segments[1].start, 5);
 });
 
-test("a huge raw Supadata entry is split into seekable bounded segments", () => {
+test("a huge raw Supadata entry waits for sentence endings before splitting", () => {
   const { groupTranscriptEntries } = loadSidepanelHelpers();
-  const text = Array.from({ length: 900 }, (_, index) => `word${index}`).join(" ");
+  const text = Array.from({ length: 30 }, (_, index) =>
+    `Sentence ${index + 1} carries a long connected idea with supporting context before it ends.`,
+  ).join(" ");
   const segments = groupTranscriptEntries([
     { start: 12, duration: 90, text },
   ]);
-  assert.ok(segments.length > 6);
-  assert.ok(segments.every((segment) => segment.text.length <= 912));
+  assert.ok(segments.length > 3);
+  assert.ok(segments.every((segment) => /[.!?]$/.test(segment.text)));
   assert.equal(segments[0].start, 12);
   assert.ok(segments.at(-1).start > segments[0].start);
   assert.ok(segments.every((segment) => /^segment-\d+-\d+$/.test(segment.id)));
+});
+
+test("Supadata timestamps preserve sub-second cue precision", () => {
+  const background = loadBackgroundHelpers();
+  const normalized = background.normalizeTranscriptPayload({
+    lang: "en",
+    content: [
+      { text: "First.", offset: 250, duration: 600 },
+      { text: "Second.", offset: 850, duration: 750 },
+    ],
+  });
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(normalized.transcript)),
+    [
+      { text: "First.", start: 0.25, duration: 0.6, language: "en" },
+      { text: "Second.", start: 0.85, duration: 0.75, language: "en" },
+    ],
+  );
 });
 
 test("default transcript grouping combines caption sentences into readable paragraphs", () => {

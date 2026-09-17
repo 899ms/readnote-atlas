@@ -26,7 +26,7 @@ function harness({ helperAbsent = false, focused = true, minimized = false } = {
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../desktop-captions-background.js'), 'utf8'), context);
   const sender = { id: 'atlas', tab: source, url: 'https://www.youtube.com/watch?v=test' };
-  const message = { type: 'atlas-desktop-state', state: { videoId: 'test', enabled: true, playing: true, pageVisible: true, en: 'English', zh: '中文' } };
+  const message = { type: 'atlas-desktop-state', state: { videoId: 'test', enabled: true, playing: true, pageVisible: true, en: 'English', zh: '中文', time: 31.25, duration: 120.5, rate: 1.25 } };
   return { requests, timers, storageWrites,
     send: (changes = {}, from = sender) => new Promise(resolve => {
       if (listener({ ...message, ...changes }, from, resolve) !== true) resolve(undefined);
@@ -44,6 +44,9 @@ test('Atlas alone pairs and forwards bilingual state, returning native commands 
   assert.equal(body.sourceVisible, true);
   assert.equal(body.en, 'English');
   assert.equal(body.zh, '中文');
+  assert.equal(body.time, 31.25);
+  assert.equal(body.duration, 120.5);
+  assert.equal(body.rate, 1.25);
   assert.equal(body.tabId, 7);
   assert.equal(h.requests[1].init.headers.Authorization, `Bearer ${'a'.repeat(64)}`);
   await h.send();

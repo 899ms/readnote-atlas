@@ -18,30 +18,7 @@ var ReadnoteTranscript = (() => {
       .trim();
   }
 
-  function splitOversized(text, maxChars) {
-    const parts = [];
-    let rest = normalizeText(text);
-    while (rest.length > maxChars) {
-      const windowText = rest.slice(0, maxChars + 1);
-      const lowerBound = Math.floor(maxChars * 0.55);
-      let cut = -1;
-      for (const pattern of [/[;:；：]\s*/g, /[,，]\s*/g, /\s/g]) {
-        pattern.lastIndex = 0;
-        let match;
-        while ((match = pattern.exec(windowText))) {
-          if (match.index >= lowerBound) cut = match.index + match[0].length;
-        }
-        if (cut > 0) break;
-      }
-      if (cut <= 0) cut = maxChars;
-      parts.push(rest.slice(0, cut).trim());
-      rest = rest.slice(cut).trim();
-    }
-    if (rest) parts.push(rest);
-    return parts;
-  }
-
-  function groupEntries(entries, limits = LIMITS) {
+  function groupingReport(entries, limits = LIMITS) {
     if (!Array.isArray(entries) || entries.length === 0) return [];
     const pieces = [];
 
@@ -50,32 +27,29 @@ var ReadnoteTranscript = (() => {
       if (!text) return;
       const start = Number.isFinite(Number(entry.start)) ? Number(entry.start) : 0;
       const duration = Math.max(0, Number(entry.duration) || 0);
-      const sentenceParts =
-        text.match(/[^.!?;:,。！？；：，]+(?:[.!?;:,。！？；：，]+["')\]”’）】」』]*|$)/g) ||
-        [text];
+      const sentenceParts = text.match(/[^.!?。！？]+(?:[.!?。！？]+["')\]”’）】」』]*|$)/g) || [text];
       let consumedChars = 0;
 
       sentenceParts.forEach((sentencePart) => {
         const cleanPart = normalizeText(sentencePart);
         if (!cleanPart) return;
-        splitOversized(cleanPart, limits.maxChars).forEach((part, partIndex, oversizedParts) => {
-          const ratio = text.length ? Math.min(1, consumedChars / text.length) : 0;
-          pieces.push({
-            text: part,
-            start: start + duration * ratio,
-            semanticEnd:
-              /[.!?。！？]["')\]”’）】」』]*$/.test(part) || oversizedParts.length > 1,
-            clauseEnd: /[;:,；：，]["')\]”’）】」』]*$/.test(part),
-            sourceOrder: `${entryIndex}:${partIndex}`,
-          });
-          consumedChars += part.length + 1;
+        const ratio = text.length ? Math.min(1, consumedChars / text.length) : 0;
+        const endRatio = text.length ? Math.min(1, (consumedChars + cleanPart.length) / text.length) : 1;
+        pieces.push({
+          text: cleanPart,
+          start: start + duration * ratio,
+          end: start + duration * endRatio,
+          semanticEnd: /[.!?。！？]["')\]”’）】」』]*$/.test(cleanPart),
+          sourceOrder: `${entryIndex}:${pieces.length}`,
         });
+        consumedChars += cleanPart.length + 1;
       });
     });
 
     const grouped = [];
+    const diagnostics = [];
     let current = null;
-    const flush = () => {
+    const flush = (trigger) => {
       if (!current || !current.text.trim()) return;
       const index = grouped.length;
       const text = normalizeText(current.text);
@@ -84,36 +58,41 @@ var ReadnoteTranscript = (() => {
         start: current.start,
         text,
       });
+      diagnostics.push({
+        id: grouped[index].id,
+        chars: text.length,
+        duration: Math.max(0, current.end - current.start),
+        trigger,
+        semanticEnd: current.semanticEnd,
+      });
       current = null;
     };
 
     pieces.forEach((piece) => {
-      if (!current) current = { start: piece.start, text: "" };
+      if (!current) current = { start: piece.start, end: piece.end, text: "", semanticEnd: false };
       current.text = normalizeText(`${current.text} ${piece.text}`);
+      current.end = Math.max(current.end, piece.end);
+      current.semanticEnd = piece.semanticEnd;
       const elapsed = Math.max(0, piece.start - current.start);
       const comfortablySized = current.text.length >= limits.minChars;
       const reachedIdeal = current.text.length >= limits.idealChars;
-      const atNaturalBoundary =
-        piece.semanticEnd ||
-        (piece.clauseEnd &&
-          (reachedIdeal || current.text.length >= limits.maxChars || elapsed >= limits.maxSeconds));
-      const reachedGuardrail =
-        atNaturalBoundary &&
-        (current.text.length >= limits.maxChars || elapsed >= limits.maxSeconds);
-      const reachedHardGuardrail =
-        current.text.length >= Math.round(limits.maxChars * 1.2) ||
-        elapsed >= limits.maxSeconds + 5;
-      if (
-        (atNaturalBoundary && (comfortablySized || elapsed >= 8)) ||
-        (atNaturalBoundary && reachedIdeal) ||
-        reachedGuardrail ||
-        reachedHardGuardrail
-      ) {
-        flush();
+      const reachedGuardrail = current.text.length >= limits.maxChars || elapsed >= limits.maxSeconds;
+      if (piece.semanticEnd && (comfortablySized || reachedIdeal || reachedGuardrail || elapsed >= 8)) {
+        flush("sentence-boundary");
       }
     });
-    flush();
-    return grouped;
+    flush("transcript-end");
+    return { segments: grouped, diagnostics };
+  }
+
+  function groupEntries(entries, limits = LIMITS) {
+    const report = groupingReport(entries, limits);
+    return Array.isArray(report) ? report : report.segments;
+  }
+
+  function inspectGrouping(entries, limits = LIMITS) {
+    const report = groupingReport(entries, limits);
+    return Array.isArray(report) ? { segments: [], diagnostics: [] } : report;
   }
 
   function activeSegment(segments, seconds, maxTailSeconds = 12) {
@@ -237,6 +216,7 @@ var ReadnoteTranscript = (() => {
     saveDisplayMode,
     normalizeText,
     groupEntries,
+    inspectGrouping,
     activeSegment,
     wrapSubtitle,
     translationCandidates,

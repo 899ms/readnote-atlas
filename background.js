@@ -860,13 +860,14 @@ function normalizeTranscriptPayload(data) {
   for (const chunk of Array.isArray(data?.content) ? data.content : []) {
     const cleanText = String(chunk?.text || "").replace(/>> ?/g, "").trim();
     if (!cleanText) continue;
-    const startSeconds = Math.floor((Number(chunk.offset) || 0) / 1000);
-    const minutes = Math.floor(startSeconds / 60);
-    const seconds = startSeconds % 60;
+    const startSeconds = Math.max(0, (Number(chunk.offset) || 0) / 1000);
+    const displaySeconds = Math.floor(startSeconds);
+    const minutes = Math.floor(displaySeconds / 60);
+    const seconds = displaySeconds % 60;
     transcript.push({
       text: cleanText,
       start: startSeconds,
-      duration: Math.floor((Number(chunk.duration) || 0) / 1000),
+      duration: Math.max(0, (Number(chunk.duration) || 0) / 1000),
       language: chunk.lang || data.lang || null,
     });
     plainLines.push(cleanText);
@@ -2247,6 +2248,7 @@ async function callAiTranslation(
 
 // Pure validators are exposed for the repository's Node tests only.
 globalThis.__YTD_TRANSLATION_TESTING__ = {
+  normalizeTranscriptPayload,
   requestAiCompletion,
   callAiTranslation,
   validateTranscriptBatchRequest,

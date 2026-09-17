@@ -11,7 +11,7 @@ function bridgeHarness() {
   const commands = [];
   let tick;
   let time = 1000;
-  const video = { paused: false, ended: false, readyState: 4, currentTime: 30, duration: 100,
+  const video = { paused: false, ended: false, readyState: 4, currentTime: 30, duration: 100, playbackRate: 1,
     async play() { this.paused = false; }, pause() { this.paused = true; } };
   const root = { dataset: { mode: 'bilingual' }, querySelector: () => ({ textContent: 'Caption' }) };
   const context = vm.createContext({ URL, location: { href: 'https://www.youtube.com/watch?v=test' },
@@ -78,6 +78,31 @@ test('desktop seek controls clamp to the video, preserving paused state', async 
   assert.equal(h.video.paused, true);
 });
 
+test('desktop state reports progress and playback rate, and accepts absolute seek and rate changes', async () => {
+  const h = bridgeHarness();
+  await h.tick();
+  assert.equal(h.states.at(-1).time, 30);
+  assert.equal(h.states.at(-1).duration, 100);
+  assert.equal(h.states.at(-1).rate, 1);
+
+  await h.command('seek', { value: 72.5 });
+  assert.equal(h.video.currentTime, 72.5);
+  await h.command('seek', { value: 120 });
+  assert.equal(h.video.currentTime, 100);
+  await h.command('rate', { value: 1.75 });
+  assert.equal(h.video.playbackRate, 1.75);
+  await h.tick();
+  assert.equal(h.states.at(-1).rate, 1.75);
+});
+
+test('desktop player rejects unsupported playback rates and invalid seeks', async () => {
+  const h = bridgeHarness();
+  await h.command('rate', { value: 3 });
+  await h.command('seek', { value: 'later' });
+  assert.equal(h.video.playbackRate, 1);
+  assert.equal(h.video.currentTime, 30);
+});
+
 test('desktop commands reject stale and wrong-video requests', async () => {
   const h = bridgeHarness();
   await h.command('forward', { videoId: 'wrong' });
@@ -126,4 +151,20 @@ test('a current desktop caption binary starts without recompiling', async (t) =>
   assert.equal(needsDesktopCaptionBuild(executable, sources), true);
   fs.unlinkSync(executable);
   assert.equal(needsDesktopCaptionBuild(executable, sources), true);
+});
+
+test('native progress and rate controls remain hover-only and the panel cannot steal focus', () => {
+  const swift = fs.readFileSync(path.join(__dirname, '../scripts/desktop-captions/FloatingCaptions.swift'), 'utf8');
+  assert.match(swift, /final class CaptionPanel: NSPanel \{[\s\S]*canBecomeKey: Bool \{ false \}[\s\S]*canBecomeMain: Bool \{ false \}/);
+  assert.match(swift, /let progress = NSSlider/);
+  assert.match(swift, /let rate = NSPopUpButton/);
+  assert.match(swift, /for control in \[progress, timeLabel, rate\] \{ control\.isHidden = !visible \}/);
+  assert.match(swift, /progress\.isContinuous = false/);
+});
+
+test('the local bridge allowlists only valid absolute seek and rate commands', () => {
+  const bridge = fs.readFileSync(path.join(__dirname, '../scripts/desktop-captions/run.mjs'), 'utf8');
+  assert.match(bridge, /\["rewind", "playback", "forward", "bookmark", "seek", "rate"\]\.includes\(body\.action\)/);
+  assert.match(bridge, /body\.action === "seek"[\s\S]*value < 0/);
+  assert.match(bridge, /body\.action === "rate"[\s\S]*\[1, 1\.25, 1\.5, 1\.75, 2\]\.includes\(value\)/);
 });

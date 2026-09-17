@@ -82,10 +82,14 @@ const server = createServer(async (req, res) => {
         const command = commands.next(body.tabId, body.result, body.videoId);
         res.end(JSON.stringify({ command })); return;
       }
-      if (req.url === "/command" && ["rewind", "playback", "forward", "bookmark"].includes(body.action)) {
+      if (req.url === "/command" && ["rewind", "playback", "forward", "bookmark", "seek", "rate"].includes(body.action)) {
         const state = sources.get(body.tabId);
         if (!state || state.videoId !== body.videoId || Date.now() - state.receivedAt > 3500) throw new Error("source unavailable");
-        const command = { id: randomUUID(), action: body.action, videoId: state.videoId, time: Number(body.time), queuedAt: Date.now() };
+        const value = Number(body.value);
+        if (body.action === "seek" && (!Number.isFinite(value) || value < 0)) throw new Error("invalid seek");
+        if (body.action === "rate" && ![1, 1.25, 1.5, 1.75, 2].includes(value)) throw new Error("invalid rate");
+        const command = { id: randomUUID(), action: body.action, videoId: state.videoId, time: Number(body.time),
+          ...(body.action === "seek" || body.action === "rate" ? { value } : {}), queuedAt: Date.now() };
         commands.enqueue(state.tabId, command);
         res.end(JSON.stringify({ id: command.id })); return;
       }

@@ -16,6 +16,53 @@ test("groups caption fragments into stable readable segments", () => {
   assert.match(grouped[0].id, /^segment-0-/);
 });
 
+test("guardrails wait for the next sentence ending instead of cutting at commas or spaces", () => {
+  const entries = [
+    { text: "This is a deliberately long clause, with several details", start: 0, duration: 6 },
+    { text: "and it keeps going beyond both limits without ending", start: 7, duration: 6 },
+    { text: "until the speaker finally completes the thought.", start: 14, duration: 5 },
+    { text: "A second complete sentence follows!", start: 20, duration: 3 },
+  ];
+  const grouped = transcript.groupEntries(entries, {
+    minChars: 1, idealChars: 40, maxChars: 55, maxSeconds: 5,
+  });
+
+  assert.equal(grouped.length, 2);
+  assert.match(grouped[0].text, /thought\.$/);
+  assert.match(grouped[1].text, /follows!$/);
+  assert.ok(grouped[0].text.length > 55, "the soft limit must not truncate a sentence");
+  assert.ok(grouped.every((segment) => !/[,\s]$/.test(segment.text)));
+});
+
+test("diagnostics explain segment length, duration, and flush trigger", () => {
+  const report = transcript.inspectGrouping([
+    { text: "A complete sentence with enough detail to cross the requested limit.", start: 0, duration: 4 },
+    { text: "Another complete sentence follows.", start: 6, duration: 3 },
+  ], { minChars: 1, idealChars: 20, maxChars: 30, maxSeconds: 20 });
+
+  assert.equal(report.segments.length, 2);
+  assert.deepEqual(
+    report.diagnostics.map(({ chars, duration, trigger, semanticEnd }) => ({ chars, duration, trigger, semanticEnd })),
+    [
+      { chars: 68, duration: 4, trigger: "sentence-boundary", semanticEnd: true },
+      { chars: 34, duration: 3, trigger: "sentence-boundary", semanticEnd: true },
+    ],
+  );
+});
+
+test("thirty sampled English segments end at sentence punctuation", () => {
+  const entries = Array.from({ length: 30 }, (_, index) => ({
+    text: `Sample sentence ${index + 1} contains enough readable context to stand alone.`,
+    start: index * 3,
+    duration: 2.5,
+  }));
+  const grouped = transcript.groupEntries(entries, {
+    minChars: 1, idealChars: 1, maxChars: 40, maxSeconds: 2,
+  });
+  assert.equal(grouped.length, 30);
+  assert.ok(grouped.every((segment) => /[.!?]$/.test(segment.text)));
+});
+
 test("finds the segment currently spoken and tolerates a short caption gap", () => {
   const segments = [
     { id: "a", start: 0, text: "one" },
