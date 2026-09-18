@@ -113,14 +113,18 @@ final class CaptionView: NSView {
         let remainder = total % 60
         return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, remainder) : String(format: "%d:%02d", minutes, remainder)
     }
-    func height(_ text: String, size: CGFloat, width: CGFloat) -> CGFloat {
-        if text.isEmpty { return 0 }
-        let style = NSMutableParagraphStyle()
-        style.lineBreakMode = .byWordWrapping
-        style.alignment = .left
-        return ceil((text as NSString).boundingRect(with: NSSize(width: max(1, width - 6), height: 100_000),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: NSFont.systemFont(ofSize: size, weight: .medium), .paragraphStyle: style]).height) + 3
+    // Measure with the label itself. An NSString.boundingRect estimate runs
+    // 1-2pt short of what the NSTextField lays out on some width/font pairs,
+    // and a short frame makes NSLayoutManager drop the *whole* last line
+    // (truncatesLastVisibleLine is off, so no ellipsis either). That looked
+    // like a truncated sentence. Measure what is drawn, plus a 1pt margin.
+    func fittedHeight(_ label: NSTextField, width: CGFloat) -> CGFloat {
+        if label.stringValue.isEmpty { return 0 }
+        return ceil(label.sizeThatFits(NSSize(width: max(1, width), height: .greatestFiniteMagnitude)).height) + 1
+    }
+    func applyFont(_ size: CGFloat) {
+        english.font = .systemFont(ofSize: size, weight: .medium)
+        chinese.font = .systemFont(ofSize: size * 0.95, weight: .medium)
     }
     func setCaption(en: String, zh: String, playing: Bool, live: Bool, time: Double = 0, duration: Double = 0, playbackRate: Double = 1) {
         english.stringValue = en
@@ -143,20 +147,21 @@ final class CaptionView: NSView {
         super.layout()
         glass.frame = bounds
         let width = max(1, bounds.width - 32)
-        let available = max(1, bounds.height - 24)
+        // 12pt caption inset on top, plus the hover control row reserved at the bottom.
+        let available = max(1, bounds.height - 46)
         var low: CGFloat = 1
-        var high: CGFloat = min(34, bounds.width / 17)
+        var high: CGFloat = max(low, min(34, bounds.width / 17))
         for _ in 0..<14 {
             let size = (low + high) / 2
+            applyFont(size)
             let gap = english.stringValue.isEmpty || chinese.stringValue.isEmpty ? 0 : size * 0.5
-            let needed = height(english.stringValue, size: size, width: width) + height(chinese.stringValue, size: size * 0.95, width: width) + gap
+            let needed = fittedHeight(english, width: width) + fittedHeight(chinese, width: width) + gap
             if needed <= available { low = size } else { high = size }
         }
         fittedSize = low
-        english.font = .systemFont(ofSize: low, weight: .medium)
-        chinese.font = .systemFont(ofSize: low * 0.95, weight: .medium)
-        let enHeight = height(english.stringValue, size: low, width: width)
-        let zhHeight = height(chinese.stringValue, size: low * 0.95, width: width)
+        applyFont(low)
+        let enHeight = fittedHeight(english, width: width)
+        let zhHeight = fittedHeight(chinese, width: width)
         let gap = english.stringValue.isEmpty || chinese.stringValue.isEmpty ? 0 : low * 0.5
         let top = 12 + max(0, (available - enHeight - zhHeight - gap) / 2)
         english.frame = NSRect(x: 16, y: top, width: width, height: enHeight)
